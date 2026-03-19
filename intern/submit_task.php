@@ -2,17 +2,8 @@
 // Start session and database connection
 session_start();
 
-// Database configuration
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$database = 'imsjr';
-
-// Create connection
-$conn = mysqli_connect($host, $username, $password, $database);
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-}
+// Include database configuration
+require_once '../config/database.php';
 
 // Check if user is logged in and is intern
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'intern') {
@@ -37,7 +28,9 @@ if ($task_id > 0) {
         SELECT t.*, u.full_name as assigned_by_name
         FROM tasks t
         LEFT JOIN users u ON t.assigned_by = u.id
-        WHERE t.id = $task_id AND t.assigned_to = $intern_id AND t.status = 'pending'
+        WHERE t.id = $task_id AND t.assigned_to = $intern_id 
+          AND t.status IN ('pending', 'not_completed') 
+          AND t.deadline >= CURDATE()
     ";
 
     $task_result = mysqli_query($conn, $task_query);
@@ -56,7 +49,9 @@ $pending_tasks_query = "
            DATEDIFF(t.deadline, CURDATE()) as days_left
     FROM tasks t
     LEFT JOIN users u ON t.assigned_by = u.id
-    WHERE t.assigned_to = $intern_id AND t.status = 'pending'
+    WHERE t.assigned_to = $intern_id 
+      AND t.status IN ('pending', 'not_completed') 
+      AND t.deadline >= CURDATE()
     ORDER BY 
         CASE 
             WHEN t.deadline < CURDATE() THEN 0
@@ -97,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $task_id > 0 && isset($task)) {
                 $file_name = 'task_' . $task_id . '_' . time() . '.' . $file_ext;
                 
                 // FIX: Create directory step by step
-                $base_dir = $_SERVER['DOCUMENT_ROOT'] . '/imsjr/';
+                $base_dir = dirname(__DIR__) . '/';
                 
                 // Check if assets directory exists
                 $assets_dir = $base_dir . 'assets/';
@@ -162,15 +157,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $task_id > 0 && isset($task)) {
     $update_query = "
         UPDATE tasks 
         SET status = 'submitted',
-            submitted_date = CURDATE(),
+            submitted_date = NOW(),
             submitted_file = ?,
+            submission_text = ?,
             last_updated = NOW()
         WHERE id = ? AND assigned_to = ?
     ";
     
     $stmt = mysqli_prepare($conn, $update_query);
     if ($stmt) {
-        mysqli_stmt_bind_param($stmt, "sii", $uploaded_file, $task_id, $intern_id);
+        mysqli_stmt_bind_param($stmt, "ssii", $uploaded_file, $submission_notes, $task_id, $intern_id);
         
         if (mysqli_stmt_execute($stmt)) {
             // Create notification message for team lead using prepared statement
@@ -471,9 +467,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $task_id > 0 && isset($task)) {
                 <i class="fas fa-paper-plane"></i>Submit Task
             </a>
             
-            <a href="view_feedback.php" class="nav-link">
-                <i class="fas fa-comment-dots"></i>Feedback
-            </a>
             
             <a href="messages.php" class="nav-link">
                 <i class="fas fa-envelope"></i>Messages
@@ -668,7 +661,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $task_id > 0 && isset($task)) {
                     <h6><i class="fas fa-info-circle me-2"></i>Important Notes:</h6>
                     <ul class="mb-0">
                         <li>Once submitted, you cannot edit your submission</li>
-                        <li>Your team lead will review and provide feedback</li>
+                        <li>Your team lead will review your submission</li>
                         <li>Make sure your file contains all required work</li>
                         <li>Submission time will be recorded automatically</li>
                         <li>If upload fails, try using the alternative browse button</li>
@@ -679,7 +672,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $task_id > 0 && isset($task)) {
                 <div class="alert alert-warning">
                     <h6><i class="fas fa-exclamation-triangle me-2"></i>If Upload Fails:</h6>
                     <p class="mb-2">Please create the following directories manually:</p>
-                    <code>C:\xampp\htdocs\imsjr\assets\uploads\tasks\</code>
+                    <code><?php echo $base_dir; ?>assets\uploads\tasks\</code>
                     <p class="mt-2 mb-0">Make sure the directories have write permissions (777 on Linux/Mac or full control on Windows).</p>
                 </div>
             </div>

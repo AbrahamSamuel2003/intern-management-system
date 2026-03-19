@@ -2,17 +2,8 @@
 // Start session and database connection
 session_start();
 
-// Database configuration
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$database = 'imsjr';
-
-// Create connection
-$conn = mysqli_connect($host, $username, $password, $database);
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-}
+// Include database configuration
+require_once '../config/database.php';
 
 // Check if user is logged in and is intern
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'intern') {
@@ -48,12 +39,13 @@ $company_name = $company_data['company_name'] ?? 'Intern Management System';
 $stats_query = "
     SELECT 
         (SELECT COUNT(*) FROM tasks WHERE assigned_to = $intern_id) as total_tasks,
+        (SELECT COUNT(*) FROM tasks WHERE assigned_to = $intern_id AND status != 'completed' AND deadline >= CURDATE()) as active_tasks,
         (SELECT COUNT(*) FROM tasks WHERE assigned_to = $intern_id AND status = 'completed') as completed_tasks,
-        (SELECT COUNT(*) FROM tasks WHERE assigned_to = $intern_id AND status != 'completed') as not_completed_tasks,
+        (SELECT COUNT(*) FROM tasks WHERE assigned_to = $intern_id AND status = 'not_completed') as not_completed_tasks,
         (SELECT COUNT(*) FROM messages WHERE receiver_id = $intern_id AND read_status = FALSE) as unread_messages,
         (SELECT performance_score FROM performance WHERE intern_id = $intern_id) as performance_score,
         (SELECT eligibility FROM performance WHERE intern_id = $intern_id) as eligibility,
-        (SELECT AVG(rating) FROM tasks WHERE assigned_to = $intern_id) as avg_rating
+        (SELECT AVG(rating) FROM tasks WHERE assigned_to = $intern_id AND status = 'completed') as avg_rating
 ";
 
 $stats_result = mysqli_query($conn, $stats_query);
@@ -65,11 +57,11 @@ $recent_tasks_sql = "SELECT t.*,
                         DATEDIFF(t.deadline, CURDATE()) as days_left
                     FROM tasks t
                     JOIN users u ON t.assigned_by = u.id
-                    WHERE t.assigned_to = ?
+                    WHERE t.assigned_to = ? AND t.status != 'completed' AND t.deadline >= CURDATE()
                     ORDER BY 
                         CASE 
-                            WHEN status = 'pending' AND deadline < CURDATE() THEN 0
-                            WHEN status = 'pending' THEN 1
+                            WHEN status = 'pending' THEN 0
+                            WHEN status = 'submitted' THEN 1
                             ELSE 2
                         END,
                         deadline ASC
@@ -384,9 +376,6 @@ $recent_messages = mysqli_stmt_get_result($stmt);
                 <i class="fas fa-paper-plane"></i>Submit Task
             </a>
             
-            <a href="view_feedback.php" class="nav-link">
-                <i class="fas fa-comment-dots"></i>Feedback
-            </a>
             
             <a href="messages.php" class="nav-link">
                 <i class="fas fa-envelope"></i>Messages
@@ -521,8 +510,8 @@ $recent_messages = mysqli_stmt_get_result($stmt);
                     <div class="stat-icon warning">
                         <i class="fas fa-clock"></i>
                     </div>
-                    <h3 class="mb-2"><?php echo $stats['not_completed_tasks'] ?? 0; ?></h3>
-                    <p class="mb-0 text-muted">Tasks Not Completed</p>
+                    <h3 class="mb-2"><?php echo $stats['active_tasks'] ?? 0; ?></h3>
+                    <p class="mb-0 text-muted">Active Tasks</p>
                 </div>
             </div>
 
@@ -588,7 +577,7 @@ $recent_messages = mysqli_stmt_get_result($stmt);
                                                     <i class="fas fa-paper-plane me-1"></i>Submit
                                                 </a>
                                                 <?php else: ?>
-                                                <a href="view_feedback.php?id=<?php echo $task['id']; ?>" class="btn btn-sm btn-outline-secondary">
+                                                <a href="my_tasks.php?id=<?php echo $task['id']; ?>" class="btn btn-sm btn-outline-secondary">
                                                     <i class="fas fa-eye me-1"></i>View
                                                 </a>
                                                 <?php endif; ?>
@@ -662,11 +651,6 @@ $recent_messages = mysqli_stmt_get_result($stmt);
                             <div class="col-6">
                                 <a href="my_tasks.php?filter=pending" class="btn btn-warning w-100">
                                     <i class="fas fa-clock me-1"></i>Pending Tasks
-                                </a>
-                            </div>
-                            <div class="col-6">
-                                <a href="view_feedback.php" class="btn btn-info w-100">
-                                    <i class="fas fa-comment-dots me-1"></i>View Feedback
                                 </a>
                             </div>
                         </div>

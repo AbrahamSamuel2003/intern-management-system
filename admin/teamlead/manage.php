@@ -1,18 +1,7 @@
 <?php
 // Start session and database connection
 session_start();
-
-// Database configuration
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$database = 'imsjr';
-
-// Create connection
-$conn = mysqli_connect($host, $username, $password, $database);
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-}
+require_once '../../config/database.php';
 
 // Check if user is logged in and is admin
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
@@ -48,27 +37,7 @@ if (isset($_GET['delete'])) {
     }
 }
 
-// Handle team lead deactivation
-if (isset($_GET['deactivate'])) {
-    $tl_id = intval($_GET['deactivate']);
-    $update_query = "UPDATE users SET is_active = FALSE WHERE id = $tl_id";
-    if (mysqli_query($conn, $update_query)) {
-        $success = "Team Lead deactivated successfully!";
-    } else {
-        $error = "Error deactivating team lead: " . mysqli_error($conn);
-    }
-}
-
-// Handle team lead activation
-if (isset($_GET['activate'])) {
-    $tl_id = intval($_GET['activate']);
-    $update_query = "UPDATE users SET is_active = TRUE WHERE id = $tl_id";
-    if (mysqli_query($conn, $update_query)) {
-        $success = "Team Lead activated successfully!";
-    } else {
-        $error = "Error activating team lead: " . mysqli_error($conn);
-    }
-}
+// End of handlers
 
 // Get all team leads with their domain info
 $teamleads_query = "
@@ -205,22 +174,6 @@ $teamleads_result = mysqli_query($conn, $teamleads_query);
             margin-bottom: 20px;
         }
         
-        /* Status Badges */
-        .status-active {
-            background-color: #d1fae5;
-            color: #065f46;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-        }
-        
-        .status-inactive {
-            background-color: #fee2e2;
-            color: #991b1b;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-        }
         
         /* Stats Badges */
         .badge-interns {
@@ -365,17 +318,6 @@ $teamleads_result = mysqli_query($conn, $teamleads_query);
                                             <h6 class="mb-1"><?php echo htmlspecialchars($tl['full_name']); ?></h6>
                                             <small class="text-muted">@<?php echo htmlspecialchars($tl['username']); ?></small>
                                         </div>
-                                        <div>
-                                            <?php if ($tl['is_active']): ?>
-                                                <span class="status-active">
-                                                    <i class="fas fa-circle me-1" style="font-size: 8px;"></i>Active
-                                                </span>
-                                            <?php else: ?>
-                                                <span class="status-inactive">
-                                                    <i class="fas fa-circle me-1" style="font-size: 8px;"></i>Inactive
-                                                </span>
-                                            <?php endif; ?>
-                                        </div>
                                     </div>
                                     
                                     <!-- Contact Info -->
@@ -435,15 +377,6 @@ $teamleads_result = mysqli_query($conn, $teamleads_query);
                                             <i class="fas fa-edit"></i> Edit
                                         </a>
                                         
-                                        <?php if ($tl['is_active']): ?>
-                                            <button onclick="confirmDeactivate(<?php echo $tl['id']; ?>)" class="btn btn-outline-warning btn-sm">
-                                                <i class="fas fa-user-slash"></i> Deactivate
-                                            </button>
-                                        <?php else: ?>
-                                            <a href="manage.php?activate=<?php echo $tl['id']; ?>" class="btn btn-outline-success btn-sm">
-                                                <i class="fas fa-user-check"></i> Activate
-                                            </a>
-                                        <?php endif; ?>
                                         
                                         <button onclick="confirmDelete(<?php echo $tl['id']; ?>)" class="btn btn-outline-danger btn-sm">
                                             <i class="fas fa-trash"></i>
@@ -498,19 +431,6 @@ $teamleads_result = mysqli_query($conn, $teamleads_query);
                         </div>
                     </div>
                     
-                    <div class="col-md-3 col-6 mb-3">
-                        <div class="text-center p-3 bg-success bg-opacity-10 rounded">
-                            <h3 class="mb-0 text-success"><?php echo $active_count; ?></h3>
-                            <small class="text-muted">Active</small>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-3 col-6 mb-3">
-                        <div class="text-center p-3 bg-warning bg-opacity-10 rounded">
-                            <h3 class="mb-0 text-warning"><?php echo $inactive_count; ?></h3>
-                            <small class="text-muted">Inactive</small>
-                        </div>
-                    </div>
                     
                     <div class="col-md-3 col-6 mb-3">
                         <div class="text-center p-3 bg-info bg-opacity-10 rounded">
@@ -534,12 +454,6 @@ $teamleads_result = mysqli_query($conn, $teamleads_query);
             }
         }
         
-        // Confirm before deactivating
-        function confirmDeactivate(tlId) {
-            if (confirm('Deactivate this team lead?\n\nThey will no longer be able to login or manage interns.')) {
-                window.location.href = 'manage.php?deactivate=' + tlId;
-            }
-        }
         
         // Auto-dismiss alerts
         setTimeout(function() {

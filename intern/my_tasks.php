@@ -2,17 +2,8 @@
 // Start session and database connection
 session_start();
 
-// Database configuration
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$database = 'imsjr';
-
-// Create connection
-$conn = mysqli_connect($host, $username, $password, $database);
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-}
+// Include database configuration
+require_once '../config/database.php';
 
 // Check if user is logged in and is intern
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'intern') {
@@ -27,15 +18,15 @@ $filter = isset($_GET['filter']) ? $_GET['filter'] : 'all';
 $search = isset($_GET['search']) ? $_GET['search'] : '';
 
 // Build WHERE clause based on filter
-$where_clause = "t.assigned_to = $intern_id";
+// Logic: Tasks only show if NOT completed and NOT past deadline
+$base_where = "t.assigned_to = $intern_id AND t.status != 'completed' AND t.deadline >= CURDATE()";
+
 if ($filter == 'pending') {
-    $where_clause .= " AND t.status = 'pending'";
+    $where_clause = "$base_where AND t.status = 'pending'";
 } elseif ($filter == 'submitted') {
-    $where_clause .= " AND t.status = 'submitted'";
-} elseif ($filter == 'completed') {
-    $where_clause .= " AND t.status = 'completed'";
-} elseif ($filter == 'overdue') {
-    $where_clause .= " AND t.status = 'pending' AND t.deadline < CURDATE()";
+    $where_clause = "$base_where AND t.status = 'submitted'";
+} else {
+    $where_clause = $base_where;
 }
 
 // Add search if provided
@@ -73,11 +64,9 @@ $counts_query = "
     SELECT 
         COUNT(*) as all_tasks,
         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_tasks,
-        SUM(CASE WHEN status = 'submitted' THEN 1 ELSE 0 END) as submitted_tasks,
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_tasks,
-        SUM(CASE WHEN status = 'pending' AND deadline < CURDATE() THEN 1 ELSE 0 END) as overdue_tasks
+        SUM(CASE WHEN status = 'submitted' THEN 1 ELSE 0 END) as submitted_tasks
     FROM tasks 
-    WHERE assigned_to = $intern_id
+    WHERE assigned_to = $intern_id AND status != 'completed' AND deadline >= CURDATE()
 ";
 
 $counts_result = mysqli_query($conn, $counts_query);
@@ -287,9 +276,6 @@ $company_name = $company_data['company_name'] ?? 'Intern Management System';
                 <i class="fas fa-paper-plane"></i>Submit Task
             </a>
             
-            <a href="view_feedback.php" class="nav-link">
-                <i class="fas fa-comment-dots"></i>Feedback
-            </a>
             
             <a href="messages.php" class="nav-link">
                 <i class="fas fa-envelope"></i>Messages
@@ -368,14 +354,8 @@ $company_name = $company_data['company_name'] ?? 'Intern Management System';
                                     <a href="my_tasks.php?filter=pending" class="badge bg-warning text-dark text-decoration-none filter-badge <?php echo $filter == 'pending' ? 'active' : ''; ?>">
                                         Pending <span class="badge bg-light text-dark"><?php echo $counts['pending_tasks']; ?></span>
                                     </a>
-                                    <a href="my_tasks.php?filter=overdue" class="badge bg-danger text-decoration-none filter-badge <?php echo $filter == 'overdue' ? 'active' : ''; ?>">
-                                        Overdue <span class="badge bg-light text-dark"><?php echo $counts['overdue_tasks']; ?></span>
-                                    </a>
                                     <a href="my_tasks.php?filter=submitted" class="badge bg-info text-decoration-none filter-badge <?php echo $filter == 'submitted' ? 'active' : ''; ?>">
                                         Submitted <span class="badge bg-light text-dark"><?php echo $counts['submitted_tasks']; ?></span>
-                                    </a>
-                                    <a href="my_tasks.php?filter=completed" class="badge bg-success text-decoration-none filter-badge <?php echo $filter == 'completed' ? 'active' : ''; ?>">
-                                        Completed <span class="badge bg-light text-dark"><?php echo $counts['completed_tasks']; ?></span>
                                     </a>
                                 </div>
                             </div>
@@ -394,11 +374,9 @@ $company_name = $company_data['company_name'] ?? 'Intern Management System';
                             <i class="fas fa-list me-2"></i>
                             <?php 
                             $filter_titles = [
-                                'all' => 'All Tasks',
+                                'all' => 'Active Tasks',
                                 'pending' => 'Pending Tasks',
-                                'overdue' => 'Overdue Tasks',
-                                'submitted' => 'Submitted Tasks',
-                                'completed' => 'Completed Tasks'
+                                'submitted' => 'Submitted Tasks'
                             ];
                             echo $filter_titles[$filter] . ' (' . $total_tasks . ')';
                             ?>
@@ -474,7 +452,7 @@ $company_name = $company_data['company_name'] ?? 'Intern Management System';
                                                         <i class="fas fa-paper-plane me-1"></i>Submit
                                                     </a>
                                                     <?php endif; ?>
-                                                    <a href="view_feedback.php?id=<?php echo $task['id']; ?>" class="btn btn-outline-secondary">
+                                                    <a href="my_tasks.php?id=<?php echo $task['id']; ?>" class="btn btn-outline-secondary">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
                                                     <?php if($task['status'] == 'pending' && $task['days_left'] < 3): ?>
@@ -519,17 +497,13 @@ $company_name = $company_data['company_name'] ?? 'Intern Management System';
                     <?php if($total_tasks > 0): ?>
                     <div class="card-footer">
                         <div class="row">
-                            <div class="col-md-4 text-center">
+                            <div class="col-md-6 text-center">
                                 <h5 class="mb-1"><?php echo $counts['pending_tasks']; ?></h5>
                                 <small class="text-muted">Pending</small>
                             </div>
-                            <div class="col-md-4 text-center">
-                                <h5 class="mb-1"><?php echo $counts['completed_tasks']; ?></h5>
-                                <small class="text-muted">Completed</small>
-                            </div>
-                            <div class="col-md-4 text-center">
-                                <h5 class="mb-1"><?php echo $counts['overdue_tasks']; ?></h5>
-                                <small class="text-muted">Overdue</small>
+                            <div class="col-md-6 text-center">
+                                <h5 class="mb-1"><?php echo $counts['submitted_tasks']; ?></h5>
+                                <small class="text-muted">Submitted</small>
                             </div>
                         </div>
                     </div>

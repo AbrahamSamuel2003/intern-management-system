@@ -5,34 +5,19 @@ session_start();
 // Include database configuration
 require_once 'config/database.php';
 
-// Check if a table exists (avoids fatal errors when schema isn't initialized yet)
-function tableExists($conn, $tableName) {
-    $tableName = mysqli_real_escape_string($conn, $tableName);
-    $query = "SHOW TABLES LIKE '$tableName'";
-    $result = mysqli_query($conn, $query);
-    return ($result && mysqli_num_rows($result) > 0);
-}
-
 // Check if company is already setup
-$company_exists = false;
-if (tableExists($conn, 'company_details')) {
-    try {
-        $check_query = "SELECT COUNT(*) as count FROM company_details";
-        $result = mysqli_query($conn, $check_query);
-        if ($result) {
-            $row = mysqli_fetch_assoc($result);
-            $company_exists = isset($row['count']) && ((int)$row['count'] > 0);
-        }
-    } catch (mysqli_sql_exception $e) {
-        $company_exists = false;
-    }
-}
+$company_exists = isCompanySetup($conn);
 
 // If company already exists, redirect to login
 if ($company_exists) {
     header('Location: login.php');
     exit();
 }
+
+// If we are in setup mode, clear any old session data for a fresh start
+session_unset();
+session_destroy();
+session_start();
 
 // Handle form submission
 $error = '';
@@ -56,46 +41,132 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (strlen($admin_password) < 6) {
         $error = 'Password must be at least 6 characters';
     } else {
-        // Hash password
-        $hashed_password = password_hash($admin_password, PASSWORD_DEFAULT);
+        // 1. DYNAMIC DATABASE CREATION
+        $db_name_clean = 'ims_' . strtolower(preg_replace('/[^a-zA-Z0-9]/', '_', $company_name));
+        $create_db_query = "CREATE DATABASE IF NOT EXISTS $db_name_clean";
         
-        // SIMPLIFIED: Insert company details first
-        $company_query = "INSERT INTO company_details 
-            (company_name, admin_username, admin_password, internship_duration, office_timing, min_score_for_job) 
-            VALUES ('$company_name', '$admin_username', '$hashed_password', '$internship_duration', '$office_timing', '$min_score_for_job')";
-        
-        if (mysqli_query($conn, $company_query)) {
-            // Create default domain WITHOUT created_by for now
-            $domain_query = "INSERT INTO domains (domain_name, description) VALUES ('General', 'Default domain')";
-            if (mysqli_query($conn, $domain_query)) {
-                $domain_id = mysqli_insert_id($conn);
-                
-                // Create admin user
-                $admin_query = "INSERT INTO users 
-                    (username, password, email, full_name, role, domain_id, is_active) 
-                    VALUES ('$admin_username', '$hashed_password', 'admin@$company_name.com', 'Administrator', 'admin', $domain_id, TRUE)";
-                
-                if (mysqli_query($conn, $admin_query)) {
-                    $admin_id = mysqli_insert_id($conn);
-                    
-                    // NOW update domain with created_by
-                    $update_domain = "UPDATE domains SET created_by = $admin_id WHERE id = $domain_id";
-                    mysqli_query($conn, $update_domain);
-                    
-                    $success = 'Company setup successful! Redirecting to login...';
-                    echo "<script>
-                        setTimeout(function() {
-                            window.location.href = 'login.php';
-                        }, 2000);
-                    </script>";
-                } else {
-                    $error = 'Failed to create admin user: ' . mysqli_error($conn);
+        if (mysqli_query($conn, $create_db_query)) {
+            // Select the newly created database
+            mysqli_select_db($conn, $db_name_clean);
+            
+            // 2. SCHEMA INJECTION (Create Tables)
+            $tables = [
+                "CREATE TABLE IF NOT EXISTS company_details (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    company_name VARCHAR(255) NOT NULL,
+                    admin_username VARCHAR(50) NOT NULL,
+                    admin_password VARCHAR(255) NOT NULL,
+                    internship_duration VARCHAR(100),
+                    office_timing VARCHAR(100),
+                    min_score_for_job INT DEFAULT 70,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )",
+                "CREATE TABLE IF NOT EXISTS domains (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    domain_name VARCHAR(100) NOT NULL,
+                    description TEXT,
+                    created_by INT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )",
+                "CREATE TABLE IF NOT EXISTS users (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    password VARCHAR(255) NOT NULL,
+                    email VARCHAR(100) UNIQUE NOT NULL,
+                    full_name VARCHAR(100) NOT NULL,
+                    role ENUM('admin', 'team_lead', 'intern') NOT NULL,
+                    domain_id INT,
+                    phone VARCHAR(20),
+                    join_date DATE,
+                    end_date DATE,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )",
+                "CREATE TABLE IF NOT EXISTS tasks (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    title VARCHAR(255) NOT NULL,
+                    description TEXT,
+                    instructions TEXT,
+                    assigned_to INT,
+                    assigned_by INT,
+                    domain_id INT,
+                    status ENUM('pending', 'submitted', 'completed', 'not_completed') DEFAULT 'pending',
+                    assigned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    deadline DATE,
+                    submitted_date TIMESTAMP NULL,
+                    submitted_file VARCHAR(255),
+                    submission_text TEXT,
+                    rating INT DEFAULT 0,
+                    feedback TEXT
+                )",
+                "CREATE TABLE IF NOT EXISTS performance (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    intern_id INT,
+                    total_tasks_assigned INT DEFAULT 0,
+                    tasks_completed INT DEFAULT 0,
+                    tasks_not_completed INT DEFAULT 0,
+                    tasks_submitted INT DEFAULT 0,
+                    tasks_pending INT DEFAULT 0,
+                    on_time_submissions INT DEFAULT 0,
+                    performance_score DECIMAL(5,2) DEFAULT 0.00,
+                    total_score DECIMAL(5,2) DEFAULT 0.00,
+                    attendance_percentage DECIMAL(5,2) DEFAULT 0.00,
+                    eligibility ENUM('eligible', 'not_eligible', 'pending') DEFAULT 'pending',
+                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )",
+                "CREATE TABLE IF NOT EXISTS messages (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    sender_id INT,
+                    receiver_id INT,
+                    message TEXT,
+                    read_status BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )"
+            ];
+
+            $success_creating_tables = true;
+            foreach ($tables as $sql) {
+                if (!mysqli_query($conn, $sql)) {
+                    $error = 'Failed to create table: ' . mysqli_error($conn);
+                    $success_creating_tables = false;
+                    break;
                 }
-            } else {
-                $error = 'Failed to create domain: ' . mysqli_error($conn);
+            }
+
+            if ($success_creating_tables) {
+                // 3. PERSIST THE DATABASE NAME
+                $config_content = "<?php\n// This file is automatically updated by the setup process.\ndefine('DB_NAME', '$db_name_clean');\n?>";
+                file_put_contents('config/db_config.php', $config_content);
+
+                // 4. CONTINUE WITH DATA INSERTION
+                $hashed_password = password_hash($admin_password, PASSWORD_DEFAULT);
+                $company_query = "INSERT INTO company_details 
+                    (company_name, admin_username, admin_password, internship_duration, office_timing, min_score_for_job) 
+                    VALUES ('$company_name', '$admin_username', '$hashed_password', '$internship_duration', '$office_timing', '$min_score_for_job')";
+                
+                if (mysqli_query($conn, $company_query)) {
+                    // Create admin user without a default domain
+                    $admin_query = "INSERT INTO users 
+                        (username, password, email, full_name, role, is_active) 
+                        VALUES ('$admin_username', '$hashed_password', 'admin@$db_name_clean.com', 'Administrator', 'admin', TRUE)";
+                    
+                    if (mysqli_query($conn, $admin_query)) {
+                        $success = 'Setup successful! Redirecting to login...';
+                        echo "<script>
+                            setTimeout(function() {
+                                window.location.href = 'login.php';
+                            }, 2000);
+                        </script>";
+                    } else {
+                        $error = 'Failed to create admin user: ' . mysqli_error($conn);
+                    }
+                } else {
+                    $error = 'Failed to save company details: ' . mysqli_error($conn);
+                }
             }
         } else {
-            $error = 'Failed to save company details: ' . mysqli_error($conn);
+            $error = 'Failed to create database: ' . mysqli_error($conn);
         }
     }
 }

@@ -1,18 +1,7 @@
 <?php
 // Start session and database connection
 session_start();
-
-// Database configuration
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$database = 'imsjr';
-
-// Create connection
-$conn = mysqli_connect($host, $username, $password, $database);
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-}
+require_once '../config/database.php';
 
 // Check if user is logged in and is intern
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'intern') {
@@ -357,9 +346,6 @@ $unread_count = $unread_data['unread_count'];
                 <i class="fas fa-paper-plane"></i>Submit Task
             </a>
             
-            <a href="view_feedback.php" class="nav-link">
-                <i class="fas fa-comment-dots"></i>Feedback
-            </a>
             
             <a href="messages.php" class="nav-link active">
                 <i class="fas fa-envelope"></i>Messages

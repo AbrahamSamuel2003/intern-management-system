@@ -1,43 +1,10 @@
 <?php
 session_start();
 
-// Database configuration
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$database = 'imsjr';
+// Include database configuration
+require_once 'config/database.php';
 
-// Create connection
-$conn = mysqli_connect($host, $username, $password, $database);
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-}
 
-// Check if a table exists (avoids fatal errors when schema isn't initialized yet)
-function tableExists($conn, $tableName) {
-    $tableName = mysqli_real_escape_string($conn, $tableName);
-    $query = "SHOW TABLES LIKE '$tableName'";
-    $result = mysqli_query($conn, $query);
-    return ($result && mysqli_num_rows($result) > 0);
-}
-
-// Check if company is setup
-function isCompanySetup($conn) {
-    if (!tableExists($conn, 'company_details')) {
-        return false;
-    }
-    try {
-        $query = "SELECT COUNT(*) as count FROM company_details";
-        $result = mysqli_query($conn, $query);
-        if (!$result) {
-            return false;
-        }
-        $row = mysqli_fetch_assoc($result);
-        return isset($row['count']) && ((int)$row['count'] > 0);
-    } catch (mysqli_sql_exception $e) {
-        return false;
-    }
-}
 
 // If company not setup, redirect to setup
 if (!isCompanySetup($conn)) {
@@ -176,7 +143,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Check if user is already logged in
+// Check if user is already logged in - REMOVED automatic redirect to dashboard
+// to ensure user is always presented with the login page as requested.
+/*
 if (isset($_SESSION['user_id'])) {
     // Redirect based on role
     switch ($_SESSION['role']) {
@@ -192,6 +161,7 @@ if (isset($_SESSION['user_id'])) {
     }
     exit();
 }
+*/
 ?>
 
 <!DOCTYPE html>

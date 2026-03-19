@@ -153,6 +153,9 @@ $monthly_stats_result = mysqli_query($conn, $monthly_stats_query);
             <a href="tasks.php" class="nav-link">
                 <i class="fas fa-tasks"></i>Tasks
             </a>
+            <a href="submitted_tasks.php" class="nav-link">
+                <i class="fas fa-paper-plane"></i>Submitted Tasks
+            </a>
             <a href="assign_task.php" class="nav-link">
                 <i class="fas fa-plus-circle"></i>Assign Task
             </a>
@@ -373,9 +376,9 @@ $monthly_stats_result = mysqli_query($conn, $monthly_stats_query);
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <a href="view_intern.php?id=<?php echo $perf['id']; ?>" 
-                                           class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-eye"></i>
+                                        <a href="messages.php?intern_id=<?php echo $perf['id']; ?>" 
+                                           class="btn btn-sm btn-outline-info" title="Message Intern">
+                                            <i class="fas fa-envelope"></i>
                                         </a>
                                     </td>
                                 </tr>

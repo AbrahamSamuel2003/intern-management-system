@@ -1,20 +1,7 @@
 <?php
-// teamlead/tasks.php
-
 // Start session and database connection
 session_start();
-
-// Database configuration
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$database = 'imsjr';
-
-// Create connection
-$conn = mysqli_connect($host, $username, $password, $database);
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-}
+require_once '../config/database.php';
 
 // Check if user is logged in and is team lead
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'team_lead') {
@@ -96,6 +83,21 @@ $task_stats_query = "
 ";
 $task_stats_result = mysqli_query($conn, $task_stats_query);
 $task_stats = mysqli_fetch_assoc($task_stats_result);
+
+// Get Summary for each intern (from task_history.php)
+$summary_query = "
+    SELECT 
+        u.id as intern_id,
+        u.full_name,
+        COUNT(t.id) as total_tasks,
+        SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) as completed_count,
+        SUM(CASE WHEN t.status != 'completed' THEN 1 ELSE 0 END) as not_completed_count
+    FROM users u
+    LEFT JOIN tasks t ON u.id = t.assigned_to AND t.assigned_by = $team_lead_id
+    WHERE u.role = 'intern' AND u.domain_id = $domain_id
+    GROUP BY u.id
+";
+$summary_result = mysqli_query($conn, $summary_query);
 ?>
 
 <!DOCTYPE html>
@@ -255,10 +257,11 @@ $task_stats = mysqli_fetch_assoc($task_stats_result);
         /* Task Row */
         .task-row {
             transition: background-color 0.3s;
+            cursor: pointer;
         }
         
         .task-row:hover {
-            background-color: #f8f9fa;
+            background-color: #f1f4f9;
         }
         
         /* Stats Cards */
@@ -355,6 +358,13 @@ $task_stats = mysqli_fetch_assoc($task_stats_result);
                 <i class="fas fa-tasks"></i>Tasks
             </a>
             
+            <a href="submitted_tasks.php" class="nav-link">
+                <i class="fas fa-paper-plane"></i>Submitted Tasks
+                <?php if ($task_stats['submitted_tasks'] > 0): ?>
+                <span class="badge bg-info float-end"><?php echo $task_stats['submitted_tasks']; ?></span>
+                <?php endif; ?>
+            </a>
+            
             <a href="assign_task.php" class="nav-link">
                 <i class="fas fa-plus-circle"></i>Assign Task
             </a>
@@ -437,6 +447,52 @@ $task_stats = mysqli_fetch_assoc($task_stats_result);
             </div>
         </div>
 
+        <!-- Intern Task Summary (Added from Task History) -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-chart-pie me-2"></i>Intern Task Summary
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered text-center">
+                        <thead>
+                            <tr>
+                                <th>Intern Name</th>
+                                <th>Total Tasks Given</th>
+                                <th>Completed</th>
+                                <th>Pending/Submitted</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (mysqli_num_rows($summary_result) > 0): ?>
+                                <?php while($row = mysqli_fetch_assoc($summary_result)): ?>
+                                <tr>
+                                    <td><strong><?php echo htmlspecialchars($row['full_name']); ?></strong></td>
+                                    <td><?php echo $row['total_tasks']; ?></td>
+                                    <td class="text-success"><strong><?php echo $row['completed_count']; ?></strong></td>
+                                    <td class="text-danger"><strong><?php echo $row['not_completed_count']; ?></strong></td>
+                                    <td>
+                                        <a href="?intern=<?php echo $row['intern_id']; ?>" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-filter me-1"></i>Filter Tasks
+                                        </a>
+                                    </td>
+                                </tr>
+                                <?php endwhile; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                                        <p class="text-muted">No interns found in your domain.</p>
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <!-- Filters -->
         <div class="card">
             <div class="card-body">
@@ -494,12 +550,12 @@ $task_stats = mysqli_fetch_assoc($task_stats_result);
                             </thead>
                             <tbody>
                                 <?php while($task = mysqli_fetch_assoc($tasks_result)): ?>
-                                    <tr class="task-row">
+                                    <tr class="task-row" onclick="window.location.href='view_task.php?id=<?php echo $task['id']; ?>'">
                                         <td>
                                             <strong><?php echo htmlspecialchars($task['title']); ?></strong>
                                             <p class="text-muted mb-0 small"><?php echo substr(htmlspecialchars($task['description']), 0, 50); ?>...</p>
                                         </td>
-                                        <td>
+                                        <td onclick="event.stopPropagation();">
                                             <?php if ($task['intern_name']): ?>
                                                 <a href="view_intern.php?id=<?php echo $task['intern_id']; ?>" class="text-decoration-none">
                                                     <?php echo htmlspecialchars($task['intern_name']); ?>
@@ -573,13 +629,8 @@ $task_stats = mysqli_fetch_assoc($task_stats_result);
                                                 <span class="text-muted">Not submitted</span>
                                             <?php endif; ?>
                                         </td>
-                                        <td>
+                                        <td onclick="event.stopPropagation();">
                                             <div class="btn-group" role="group">
-                                                <a href="view_task.php?id=<?php echo $task['id']; ?>" 
-                                                   class="btn btn-sm btn-outline-primary" 
-                                                   title="View Task">
-                                                    <i class="fas fa-eye"></i>
-                                                </a>
                                                 <a href="review_task.php?id=<?php echo $task['id']; ?>" 
                                                    class="btn btn-sm <?php echo $task['status'] == 'submitted' ? 'btn-outline-warning' : 'btn-outline-info'; ?>" 
                                                    title="<?php echo $task['status'] == 'submitted' ? 'Review Task' : 'Update Status'; ?>">

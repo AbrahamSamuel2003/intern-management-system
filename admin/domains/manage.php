@@ -1,18 +1,7 @@
 <?php
 // Start session and database connection
 session_start();
-
-// Database configuration
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$database = 'imsjr';
-
-// Create connection
-$conn = mysqli_connect($host, $username, $password, $database);
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-}
+require_once '../../config/database.php';
 
 // Check if user is logged in and is admin
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
@@ -54,7 +43,7 @@ $domains_query = "
            (SELECT COUNT(*) FROM users u WHERE u.domain_id = d.id AND u.role = 'team_lead') as teamlead_count,
            (SELECT COUNT(*) FROM users u WHERE u.domain_id = d.id AND u.role = 'intern') as intern_count
     FROM domains d 
-    ORDER BY d.created_at DESC
+    ORDER BY d.domain_name ASC
 ";
 $domains_result = mysqli_query($conn, $domains_query);
 ?>
@@ -313,12 +302,15 @@ $domains_result = mysqli_query($conn, $domains_query);
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php while($domain = mysqli_fetch_assoc($domains_result)): ?>
+                                <?php 
+                                $row_number = 1;
+                                while($domain = mysqli_fetch_assoc($domains_result)): 
+                                ?>
                                 <tr>
-                                    <td><strong>#<?php echo $domain['id']; ?></strong></td>
+                                    <td><strong>#<?php echo $row_number; ?></strong></td>
                                     <td>
                                         <div class="fw-bold"><?php echo htmlspecialchars($domain['domain_name']); ?></div>
-                                        <small class="text-muted">ID: DOM<?php echo str_pad($domain['id'], 3, '0', STR_PAD_LEFT); ?></small>
+                                        <small class="text-muted">ID: DOM<?php echo str_pad($row_number++, 3, '0', STR_PAD_LEFT); ?></small>
                                     </td>
                                     <td>
                                         <?php 

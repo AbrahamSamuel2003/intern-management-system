@@ -1,0 +1,22 @@
+# Environment-specific files
+# config/db_config.php (user emptied it for github)
+# But wait, the user just emptied it, maybe they want to track it.
+# Usually we ignore it.
+# Let's include it for now but I'll ask.
+
+# OS files
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE files
+.vscode/
+.idea/
+
+# Temp files
+*.tmp
+*.png
+# Ignoring all images might be too much, but task_5...png looks like trash.
+config/*.png
+teamlead/*.png
+admin/*.png

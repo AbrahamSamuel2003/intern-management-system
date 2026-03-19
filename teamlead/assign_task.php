@@ -51,11 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $task_id = mysqli_insert_id($conn);
         
         // Update performance tracking
-        $update_perf_query = "INSERT INTO performance (intern_id, total_tasks_assigned) 
-                              VALUES ($assigned_to, 1) 
-                              ON DUPLICATE KEY UPDATE 
-                              total_tasks_assigned = total_tasks_assigned + 1";
-        mysqli_query($conn, $update_perf_query);
+        require_once '../config/performance_helper.php';
+        updateInternPerformance($conn, $assigned_to);
         
         $_SESSION['success'] = "Task assigned successfully!";
         header('Location: tasks.php');
@@ -199,6 +196,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </a>
             <a href="tasks.php" class="nav-link">
                 <i class="fas fa-tasks"></i>Tasks
+            </a>
+            <a href="submitted_tasks.php" class="nav-link">
+                <i class="fas fa-paper-plane"></i>Submitted Tasks
             </a>
             <a href="assign_task.php" class="nav-link active">
                 <i class="fas fa-plus-circle"></i>Assign Task

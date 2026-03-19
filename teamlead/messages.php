@@ -153,6 +153,9 @@ $conversations_result = mysqli_query($conn, $conversations_query);
             <a href="tasks.php" class="nav-link">
                 <i class="fas fa-tasks"></i>Tasks
             </a>
+            <a href="submitted_tasks.php" class="nav-link">
+                <i class="fas fa-paper-plane"></i>Submitted Tasks
+            </a>
             <a href="assign_task.php" class="nav-link">
                 <i class="fas fa-plus-circle"></i>Assign Task
             </a>
@@ -275,9 +278,9 @@ $conversations_result = mysqli_query($conn, $conversations_query);
                                 <small class="text-muted"><?php echo htmlspecialchars($intern_info['email']); ?></small>
                             </div>
                             <div>
-                                <a href="view_intern.php?id=<?php echo $selected_intern; ?>" 
-                                   class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-eye me-1"></i>View Profile
+                                <a href="reports.php?intern_id=<?php echo $selected_intern; ?>" 
+                                   class="btn btn-sm btn-outline-info">
+                                    <i class="fas fa-chart-line me-1"></i>Performance
                                 </a>
                             </div>
                         </div>

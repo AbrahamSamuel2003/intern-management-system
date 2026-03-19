@@ -1,20 +1,7 @@
 <?php
-// teamlead/interns.php
-
 // Start session and database connection
 session_start();
-
-// Database configuration
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$database = 'imsjr';
-
-// Create connection
-$conn = mysqli_connect($host, $username, $password, $database);
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-}
+require_once '../config/database.php';
 
 // Check if user is logged in and is team lead
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'team_lead') {
@@ -306,6 +293,10 @@ $interns_result = mysqli_query($conn, $interns_query);
                 <i class="fas fa-tasks"></i>Tasks
             </a>
             
+            <a href="submitted_tasks.php" class="nav-link">
+                <i class="fas fa-paper-plane"></i>Submitted Tasks
+            </a>
+            
             <a href="assign_task.php" class="nav-link">
                 <i class="fas fa-plus-circle"></i>Assign Task
             </a>
@@ -516,10 +507,6 @@ $interns_result = mysqli_query($conn, $interns_query);
                                     <?php endif; ?>
                                     
                                     <div class="d-flex justify-content-center gap-2">
-                                        <a href="view_intern.php?id=<?php echo $intern['id']; ?>" 
-                                           class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-eye"></i> View
-                                        </a>
                                         <a href="assign_task.php?intern_id=<?php echo $intern['id']; ?>" 
                                            class="btn btn-sm btn-outline-success">
                                             <i class="fas fa-tasks"></i> Assign Task

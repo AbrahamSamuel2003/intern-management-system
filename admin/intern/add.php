@@ -1,18 +1,7 @@
 <?php
 // Start session and database connection
 session_start();
-
-// Database configuration
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$database = 'imsjr';
-
-// Create connection
-$conn = mysqli_connect($host, $username, $password, $database);
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-}
+require_once '../../config/database.php';
 
 // Check if user is logged in and is admin
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
@@ -167,9 +156,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
-        body { 
-            background-color: #f8f9fc; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        body {
+            background-color: #f8f9fc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
         }
         
         /* Sidebar Styles */
@@ -183,12 +174,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             color: white;
             box-shadow: 0 0 15px rgba(0,0,0,0.1);
             z-index: 1000;
+            transition: all 0.3s;
         }
         
         .main-content {
             margin-left: 250px;
             padding: 20px;
             min-height: 100vh;
+            transition: all 0.3s;
         }
         
         .sidebar-header {
@@ -263,71 +256,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: white;
             box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
             padding: 15px 20px;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
             border-radius: 10px;
         }
         
-        /* Form Styles */
+        /* Form Container */
         .form-container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
         }
-        
-        .form-label {
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .form-control, .form-select {
-            border: 2px solid #eef2f7;
+
+        .section-card {
+            background: white;
             border-radius: 10px;
-            padding: 12px 15px;
-        }
-        
-        .form-control:focus, .form-select:focus {
-            border-color: #4e73df;
-            box-shadow: 0 0 0 0.25rem rgba(78, 115, 223, 0.25);
-        }
-        
-        .input-group-text {
-            background-color: #f8f9fa;
-            border: 2px solid #eef2f7;
-        }
-        
-        /* Card Styles */
-        .card {
-            border: none;
-            border-radius: 10px;
+            padding: 30px;
             box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
-        
-        /* Password Toggle */
-        .password-toggle {
-            cursor: pointer;
-            background: none;
-            border: none;
-            color: #6c757d;
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #4e73df;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            border-bottom: 2px solid #f8f9fc;
+            padding-bottom: 10px;
         }
-        
-        /* Duration Calculator */
-        .duration-display {
-            background-color: #e7f5ff;
+
+        .section-title i {
+            margin-right: 10px;
+        }
+
+        .form-label {
+            font-size: 13px;
+            font-weight: 700;
+            color: #5a5c69;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .form-control, .form-select {
             border-radius: 8px;
-            padding: 10px 15px;
-            margin-top: 10px;
+            border: 1px solid #d1d3e2;
+            padding: 12px 15px;
+            font-size: 14px;
+            transition: all 0.2s;
         }
-        
+
+        .form-control:focus {
+            border-color: #4e73df;
+            box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.1);
+        }
+
+        .btn-primary {
+            background-color: #4e73df;
+            border-color: #4e73df;
+            padding: 12px 30px;
+            font-weight: 700;
+            border-radius: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary:hover {
+            background-color: #2e59d9;
+            border-color: #2653d4;
+        }
+
+        .btn-outline-secondary {
+            border: 2px solid #d1d3e2;
+            color: #858796;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 10px 20px;
+        }
+
+        .duration-display {
+            background-color: #f8f9fc;
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid #4e73df;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
-            .sidebar {
-                width: 0;
-                overflow: hidden;
-            }
-            
-            .main-content {
-                margin-left: 0;
-            }
+            .sidebar { width: 0; overflow: hidden; }
+            .main-content { margin-left: 0; }
         }
     </style>
 </head>
@@ -345,35 +361,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <a href="../dashboard.php" class="nav-link">
                 <i class="fas fa-tachometer-alt"></i>Dashboard
             </a>
-            
             <a href="../domains/manage.php" class="nav-link">
                 <i class="fas fa-layer-group"></i>Domains
             </a>
-            
             <a href="../teamlead/manage.php" class="nav-link">
                 <i class="fas fa-user-tie"></i>Team Leads
             </a>
-            
             <a href="manage.php" class="nav-link active">
                 <i class="fas fa-user-graduate"></i>Interns
             </a>
-            
             <a href="../performance/overview.php" class="nav-link">
                 <i class="fas fa-chart-line"></i>Performance
             </a>
-            
             <a href="../settings/company.php" class="nav-link">
                 <i class="fas fa-cog"></i>Settings
+            </a>
+            
+            <hr class="mx-3 opacity-25">
+            <a href="../../logout.php" class="nav-link text-warning">
+                <i class="fas fa-sign-out-alt"></i>Logout
             </a>
         </div>
         
         <div class="user-profile">
             <div class="d-flex align-items-center">
                 <div class="profile-img">
-                    <?php echo strtoupper(substr($_SESSION['full_name'], 0, 1)); ?>
+                    <?php echo strtoupper(substr($_SESSION['full_name'] ?? 'A', 0, 1)); ?>
                 </div>
                 <div>
-                    <h6 class="mb-0"><?php echo $_SESSION['full_name']; ?></h6>
+                    <h6 class="mb-0 text-white"><?php echo $_SESSION['full_name'] ?? 'Admin'; ?></h6>
                     <small class="text-white-50">Administrator</small>
                 </div>
             </div>
@@ -387,14 +403,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="container-fluid">
                 <div class="d-flex justify-content-between align-items-center w-100">
                     <div>
-                        <h4 class="mb-0">Add New Intern</h4>
-                        <small class="text-muted">Register a new intern account</small>
+                        <h4 class="mb-0 text-gray-800">Add New Intern</h4>
+                        <small class="text-muted">Register and assign a new intern</small>
                     </div>
                     <div>
-                        <a href="manage.php" class="btn btn-outline-secondary">
-                            <i class="fas fa-arrow-left me-2"></i>Back to Interns
+                        <a href="manage.php" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-arrow-left me-1"></i>Back to List
                         </a>
-
                     </div>
                 </div>
             </div>
@@ -403,267 +418,141 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <!-- Messages -->
         <?php if ($error): ?>
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <i class="fas fa-exclamation-circle me-2"></i><?php echo $error; ?>
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <?php echo $error; ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
         
         <?php if ($success): ?>
             <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="fas fa-check-circle me-2"></i><?php echo $success; ?>
+                <i class="fas fa-check-circle me-2"></i>
+                <?php echo $success; ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
 
         <!-- Add Intern Form -->
         <div class="form-container">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-user-plus me-2"></i>Register New Intern</h5>
-                </div>
-                <div class="card-body">
-                    <form method="POST" action="" id="addInternForm">
-                        <div class="row">
-                            <!-- Personal Information -->
-                            <div class="col-md-6">
-                                <h6 class="mb-3 border-bottom pb-2">Personal Information</h6>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label">Full Name *</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i class="fas fa-user"></i>
-                                        </span>
-                                        <input type="text" class="form-control" 
-                                               name="full_name" 
-                                               value="<?php echo htmlspecialchars($form_data['full_name']); ?>"
-                                               placeholder="Enter full name"
-                                               required>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label">Email Address *</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i class="fas fa-envelope"></i>
-                                        </span>
-                                        <input type="email" class="form-control" 
-                                               name="email" 
-                                               value="<?php echo htmlspecialchars($form_data['email']); ?>"
-                                               placeholder="intern@company.com"
-                                               required>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label">Phone Number</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i class="fas fa-phone"></i>
-                                        </span>
-                                        <input type="tel" class="form-control" 
-                                               name="phone" 
-                                               value="<?php echo htmlspecialchars($form_data['phone']); ?>"
-                                               placeholder="+91 9876543210">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Account Information -->
-                            <div class="col-md-6">
-                                <h6 class="mb-3 border-bottom pb-2">Account Information</h6>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label">Username *</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i class="fas fa-at"></i>
-                                        </span>
-                                        <input type="text" class="form-control" 
-                                               name="username" 
-                                               value="<?php echo htmlspecialchars($form_data['username']); ?>"
-                                               placeholder="Choose username"
-                                               required>
-                                    </div>
-                                    <small class="text-muted">Used for login (e.g., john_doe, sarah_smith)</small>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label">Password *</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i class="fas fa-lock"></i>
-                                        </span>
-                                        <input type="password" class="form-control" 
-                                               name="password" 
-                                               id="password"
-                                               placeholder="Enter password"
-                                               required
-                                               minlength="6">
-                                        <button type="button" class="btn password-toggle" id="togglePassword">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                    </div>
-                                    <small class="text-muted">Minimum 6 characters</small>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label">Confirm Password *</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i class="fas fa-lock"></i>
-                                        </span>
-                                        <input type="password" class="form-control" 
-                                               name="confirm_password" 
-                                               id="confirmPassword"
-                                               placeholder="Confirm password"
-                                               required>
-                                        <button type="button" class="btn password-toggle" id="toggleConfirmPassword">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                    </div>
-                                    <div id="passwordMatch" class="form-text"></div>
-                                </div>
-                            </div>
-                            
-                            <!-- Domain & Duration -->
-                            <div class="col-md-6">
-                                <h6 class="mb-3 border-bottom pb-2">Internship Details</h6>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label">Assign Domain *</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i class="fas fa-layer-group"></i>
-                                        </span>
-                                        <select class="form-select" name="domain_id" id="domainSelect" required>
-                                            <option value="">Select Domain</option>
-                                            <?php while($domain = mysqli_fetch_assoc($domains_result)): ?>
-                                            <option value="<?php echo $domain['id']; ?>" 
-                                                <?php echo ($form_data['domain_id'] == $domain['id']) ? 'selected' : ''; ?>>
-                                                <?php echo htmlspecialchars($domain['domain_name']); ?>
-                                            </option>
-                                            <?php endwhile; ?>
-                                        </select>
-                                    </div>
-                                    <small class="text-muted">Intern will work under this domain's team lead</small>
-                                </div>
-                                
-                                <div id="teamLeadInfo" class="alert alert-info d-none">
-                                    <small>
-                                        <i class="fas fa-user-tie me-2"></i>
-                                        <span id="teamLeadName">No team lead assigned to this domain</span>
-                                    </small>
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-6">
-                                <h6 class="mb-3 border-bottom pb-2">Internship Duration</h6>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label">Join Date *</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i class="fas fa-calendar-plus"></i>
-                                        </span>
-                                        <input type="date" class="form-control" 
-                                               name="join_date" 
-                                               id="joinDate"
-                                               value="<?php echo htmlspecialchars($form_data['join_date']); ?>"
-                                               required>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label">End Date *</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i class="fas fa-calendar-check"></i>
-                                        </span>
-                                        <input type="date" class="form-control" 
-                                               name="end_date" 
-                                               id="endDate"
-                                               value="<?php echo htmlspecialchars($form_data['end_date']); ?>"
-                                               required>
-                                    </div>
-                                </div>
-                                
-                                <div class="duration-display">
-                                    <small class="text-muted">Internship Duration:</small>
-                                    <div id="durationText" class="fw-bold">Calculating...</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Information Card -->
-                        <div class="card bg-light mt-4">
-                            <div class="card-body">
-                                <h6 class="mb-3"><i class="fas fa-info-circle me-2"></i>Intern Responsibilities</h6>
-                                <div class="row">
-                                    <div class="col-md-4 mb-2">
-                                        <small class="text-muted">• Receive tasks from team lead</small>
-                                    </div>
-                                    <div class="col-md-4 mb-2">
-                                        <small class="text-muted">• Submit completed tasks</small>
-                                    </div>
-                                    <div class="col-md-4 mb-2">
-                                        <small class="text-muted">• View feedback from team lead</small>
-                                    </div>
-                                    <div class="col-md-4 mb-2">
-                                        <small class="text-muted">• Message team lead</small>
-                                    </div>
-                                    <div class="col-md-4 mb-2">
-                                        <small class="text-muted">• Request leave</small>
-                                    </div>
-                                    <div class="col-md-4 mb-2">
-                                        <small class="text-muted">• Track performance score</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Form Actions -->
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-                            <a href="manage.php" class="btn btn-outline-secondary me-md-2">
-                                <i class="fas fa-times me-2"></i>Cancel
-                            </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-2"></i>Register Intern
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-            
-            <!-- Credentials Card -->
-            <div class="card mt-4">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="fas fa-key me-2"></i>Login Credentials</h6>
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong>Important:</strong> The intern will use the username and password you set to login. 
-                        They will have access to their dashboard where they can view tasks, submit work, and track performance.
+            <form method="POST" action="" id="addInternForm">
+                <div class="section-card">
+                    <div class="section-title">
+                        <i class="fas fa-user"></i>Personal Information
                     </div>
                     <div class="row">
-                        <div class="col-md-6">
-                            <div class="p-3 bg-light rounded">
-                                <small class="text-muted d-block">Login URL:</small>
-                                <code>http://<?php echo $_SERVER['HTTP_HOST']; ?>/imsjr/login.php</code>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Full Name *</label>
+                            <input type="text" class="form-control" name="full_name" 
+                                   value="<?php echo htmlspecialchars($form_data['full_name']); ?>"
+                                   placeholder="Enter full name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email Address *</label>
+                            <input type="email" class="form-control" name="email" 
+                                   value="<?php echo htmlspecialchars($form_data['email']); ?>"
+                                   placeholder="intern@company.com" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" name="phone" 
+                                   value="<?php echo htmlspecialchars($form_data['phone']); ?>"
+                                   placeholder="+91 9876543210">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="section-title">
+                        <i class="fas fa-lock"></i>Account Credentials
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Username *</label>
+                            <input type="text" class="form-control" name="username" 
+                                   value="<?php echo htmlspecialchars($form_data['username']); ?>"
+                                   placeholder="Choose username" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Password *</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" name="password" id="password"
+                                       placeholder="Min 6 chars" required minlength="6">
+                                <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                    <i class="fas fa-eye"></i>
+                                </button>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="p-3 bg-light rounded">
-                                <small class="text-muted d-block">Role:</small>
-                                <span class="badge bg-info">Intern</span>
-                                <small class="text-muted d-block mt-2">Can only access assigned tasks and domain</small>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Confirm Password *</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" name="confirm_password" id="confirmPassword"
+                                       placeholder="Repeat password" required>
+                                <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassword">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <div id="passwordMatch" class="form-text"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="section-title">
+                        <i class="fas fa-briefcase"></i>Internship Details
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Assign Domain *</label>
+                            <select class="form-select" name="domain_id" id="domainSelect" required>
+                                <option value="">Select Domain</option>
+                                <?php 
+                                mysqli_data_seek($domains_result, 0);
+                                while($domain = mysqli_fetch_assoc($domains_result)): 
+                                ?>
+                                    <option value="<?php echo $domain['id']; ?>" 
+                                        <?php echo ($form_data['domain_id'] == $domain['id']) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($domain['domain_name']); ?>
+                                    </option>
+                                <?php endwhile; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Join Date *</label>
+                            <input type="date" class="form-control" name="join_date" id="joinDate"
+                                   value="<?php echo htmlspecialchars($form_data['join_date']); ?>" required>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">End Date *</label>
+                            <input type="date" class="form-control" name="end_date" id="endDate"
+                                   value="<?php echo htmlspecialchars($form_data['end_date']); ?>" required>
+                        </div>
+                    </div>
+                    
+                    <div class="duration-display mt-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-clock text-primary me-2"></i>
+                            <div>
+                                <small class="text-muted d-block">Estimated Internship Duration</small>
+                                <span id="durationText" class="fw-bold text-dark">Calculating...</span>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+
+                <div class="d-flex justify-content-end gap-2 mb-5">
+                    <a href="manage.php" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check-circle me-1"></i>Create Intern Account
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer pb-4 text-center mt-5">
+            <p class="mb-0 text-muted">
+                &copy; <?php echo date('Y'); ?> <?php echo $company_name; ?> | Intern Management System
+            </p>
         </div>
     </div>
 
@@ -672,191 +561,110 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     <script>
         // Toggle password visibility
-        document.getElementById('togglePassword').addEventListener('click', function() {
-            const passwordInput = document.getElementById('password');
-            const icon = this.querySelector('i');
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-            } else {
-                passwordInput.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
+        function setupToggle(btnId, inputId) {
+            const btn = document.getElementById(btnId);
+            const input = document.getElementById(inputId);
+            if(btn && input) {
+                btn.addEventListener('click', function() {
+                    const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+                    input.setAttribute('type', type);
+                    this.querySelector('i').classList.toggle('fa-eye');
+                    this.querySelector('i').classList.toggle('fa-eye-slash');
+                });
             }
-        });
+        }
         
-        document.getElementById('toggleConfirmPassword').addEventListener('click', function() {
-            const passwordInput = document.getElementById('confirmPassword');
-            const icon = this.querySelector('i');
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-            } else {
-                passwordInput.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
-            }
-        });
+        setupToggle('togglePassword', 'password');
+        setupToggle('toggleConfirmPassword', 'confirmPassword');
         
-        // Check password match
+        // Password matching check
         const password = document.getElementById('password');
         const confirmPassword = document.getElementById('confirmPassword');
         const passwordMatch = document.getElementById('passwordMatch');
         
-        function checkPasswordMatch() {
-            if (password.value === '' || confirmPassword.value === '') {
+        function checkPasswords() {
+            if (!password.value || !confirmPassword.value) {
                 passwordMatch.textContent = '';
-                passwordMatch.className = 'form-text';
-            } else if (password.value === confirmPassword.value) {
-                passwordMatch.textContent = '✓ Passwords match';
+                return;
+            }
+            if (password.value === confirmPassword.value) {
+                passwordMatch.textContent = 'Passwords match';
                 passwordMatch.className = 'form-text text-success';
             } else {
-                passwordMatch.textContent = '✗ Passwords do not match';
+                passwordMatch.textContent = 'Passwords do not match';
                 passwordMatch.className = 'form-text text-danger';
             }
         }
         
-        password.addEventListener('input', checkPasswordMatch);
-        confirmPassword.addEventListener('input', checkPasswordMatch);
+        password.addEventListener('input', checkPasswords);
+        confirmPassword.addEventListener('input', checkPasswords);
         
-        // Calculate internship duration
+        // Duration calculation
         function calculateDuration() {
-            const joinDate = document.getElementById('joinDate').value;
-            const endDate = document.getElementById('endDate').value;
-            const durationText = document.getElementById('durationText');
+            const join = new Date(document.getElementById('joinDate').value);
+            const end = new Date(document.getElementById('endDate').value);
+            const display = document.getElementById('durationText');
             
-            if (joinDate && endDate) {
-                const join = new Date(joinDate);
-                const end = new Date(endDate);
-                
+            if (join && end && !isNaN(join) && !isNaN(end)) {
                 if (end < join) {
-                    durationText.innerHTML = '<span class="text-danger">End date must be after join date</span>';
+                    display.textContent = 'Invalid: End date is before join date';
+                    display.className = 'fw-bold text-danger';
                     return;
                 }
                 
-                // Calculate difference in months
-                const months = (end.getFullYear() - join.getFullYear()) * 12 + 
-                              (end.getMonth() - join.getMonth());
-                const days = Math.floor((end - join) / (1000 * 60 * 60 * 24));
+                const diffTime = Math.abs(end - join);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const months = Math.floor(diffDays / 30);
+                const remainingDays = diffDays % 30;
                 
-                let duration = '';
-                if (months > 0) {
-                    duration = `${months} month${months > 1 ? 's' : ''}`;
-                    if (days % 30 > 0) {
-                        duration += `, ${days % 30} day${days % 30 > 1 ? 's' : ''}`;
-                    }
-                } else {
-                    duration = `${days} day${days > 1 ? 's' : ''}`;
-                }
+                let text = '';
+                if (months > 0) text += `${months} month(s) `;
+                if (remainingDays > 0) text += `${remainingDays} day(s)`;
+                if (text === '') text = '0 days';
                 
-                durationText.textContent = duration;
+                display.textContent = text;
+                display.className = 'fw-bold text-dark';
             }
         }
         
         document.getElementById('joinDate').addEventListener('change', calculateDuration);
         document.getElementById('endDate').addEventListener('change', calculateDuration);
-        
-        // Initialize duration calculation
         calculateDuration();
-        
-        // Show team lead info when domain is selected
-        document.getElementById('domainSelect').addEventListener('change', function() {
-            const teamLeadInfo = document.getElementById('teamLeadInfo');
-            const teamLeadName = document.getElementById('teamLeadName');
+
+        // Mobile Sidebar Toggle
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
             
-            // In a real application, you would fetch this via AJAX
-            // For now, we'll just show a generic message
-            if (this.value) {
-                teamLeadInfo.classList.remove('d-none');
-                teamLeadName.textContent = 'Team lead will be assigned based on domain selection';
+            if (sidebar.style.width === '0px' || sidebar.style.width === '') {
+                sidebar.style.width = '250px';
+                mainContent.style.marginLeft = '250px';
             } else {
-                teamLeadInfo.classList.add('d-none');
+                sidebar.style.width = '0px';
+                mainContent.style.marginLeft = '0px';
             }
-        });
+        }
         
-        // Form validation
-        document.getElementById('addInternForm').addEventListener('submit', function(e) {
-            const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
-            const domain = document.getElementById('domainSelect').value;
-            const joinDate = document.getElementById('joinDate').value;
-            const endDate = document.getElementById('endDate').value;
-            
-            if (password.length < 6) {
-                e.preventDefault();
-                alert('Password must be at least 6 characters long');
-                return false;
+        // Add hamburger menu for mobile
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.innerWidth <= 768) {
+                const navbar = document.querySelector('.navbar-top .d-flex');
+                const hamburger = document.createElement('button');
+                hamburger.className = 'btn btn-primary me-2';
+                hamburger.innerHTML = '<i class="fas fa-bars"></i>';
+                hamburger.onclick = toggleSidebar;
+                navbar.insertBefore(hamburger, navbar.firstChild);
             }
-            
-            if (password !== confirmPassword) {
-                e.preventDefault();
-                alert('Passwords do not match');
-                return false;
-            }
-            
-            if (!domain) {
-                e.preventDefault();
-                alert('Please select a domain for the intern');
-                return false;
-            }
-            
-            if (!joinDate || !endDate) {
-                e.preventDefault();
-                alert('Please enter both join date and end date');
-                return false;
-            }
-            
-            if (new Date(endDate) < new Date(joinDate)) {
-                e.preventDefault();
-                alert('End date must be after join date');
-                return false;
-            }
-            
-            // Show loading state
-            const submitBtn = this.querySelector('button[type="submit"]');
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Registering...';
-            submitBtn.disabled = true;
         });
         
         // Auto-dismiss alerts
-        setTimeout(function() {
+        setTimeout(() => {
             const alerts = document.querySelectorAll('.alert');
             alerts.forEach(alert => {
                 const bsAlert = new bootstrap.Alert(alert);
                 bsAlert.close();
             });
         }, 5000);
-        
-        // Mobile menu toggle
-        function toggleSidebar() {
-            const sidebar = document.querySelector('.sidebar');
-            const mainContent = document.querySelector('.main-content');
-            
-            if (window.innerWidth <= 768) {
-                if (sidebar.style.width === '250px') {
-                    sidebar.style.width = '0';
-                    mainContent.style.marginLeft = '0';
-                } else {
-                    sidebar.style.width = '250px';
-                    mainContent.style.marginLeft = '250px';
-                }
-            }
-        }
-        
-        // Add hamburger menu for mobile
-        window.addEventListener('DOMContentLoaded', function() {
-            if (window.innerWidth <= 768) {
-                const navbar = document.querySelector('.navbar-top');
-                const hamburger = document.createElement('button');
-                hamburger.className = 'btn btn-primary me-2';
-                hamburger.innerHTML = '<i class="fas fa-bars"></i>';
-                hamburger.onclick = toggleSidebar;
-                
-                navbar.querySelector('.d-flex').insertBefore(hamburger, navbar.querySelector('.d-flex').firstChild);
-            }
-        });
     </script>
 </body>
 </html>

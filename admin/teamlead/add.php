@@ -1,18 +1,7 @@
 <?php
 // Start session and database connection
 session_start();
-
-// Database configuration
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$database = 'imsjr';
-
-// Create connection
-$conn = mysqli_connect($host, $username, $password, $database);
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-}
+require_once '../../config/database.php';
 
 // Check if user is logged in and is admin
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
@@ -540,9 +529,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <small class="text-muted">• Mark tasks as completed/not completed</small>
                                     </div>
                                     <div class="col-md-4 mb-2">
-                                        <small class="text-muted">• Provide feedback to interns</small>
-                                    </div>
-                                    <div class="col-md-4 mb-2">
                                         <small class="text-muted">• Message interns</small>
                                     </div>
                                     <div class="col-md-4 mb-2">
@@ -566,33 +552,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             
             <!-- Credentials Card -->
-            <div class="card mt-4">
-                <div class="card-header">
-                    <h6 class="mb-0"><i class="fas fa-key me-2"></i>Login Credentials</h6>
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong>Important:</strong> The team lead will use the username and password you set to login. 
-                        They will have access to their domain's dashboard where they can manage interns and tasks.
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="p-3 bg-light rounded">
-                                <small class="text-muted d-block">Login URL:</small>
-                                <code>http://<?php echo $_SERVER['HTTP_HOST']; ?>/imsjr/login.php</code>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="p-3 bg-light rounded">
-                                <small class="text-muted d-block">Role:</small>
-                                <span class="badge bg-success">Team Lead</span>
-                                <small class="text-muted d-block mt-2">Can only access assigned domain</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+           
         </div>
     </div>
 

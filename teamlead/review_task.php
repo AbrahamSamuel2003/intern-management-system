@@ -4,17 +4,8 @@
 // Start session and database connection
 session_start();
 
-// Database configuration
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$database = 'imsjr';
-
-// Create connection
-$conn = mysqli_connect($host, $username, $password, $database);
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-}
+// Include database configuration
+require_once '../config/database.php';
 
 // Check if user is logged in and is team lead
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'team_lead') {
@@ -31,120 +22,52 @@ $error_msg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status'])) {
     $status = $_POST['status']; // 'completed' or 'not_completed'
     $rating = isset($_POST['rating']) ? intval($_POST['rating']) : 0;
-    $feedback = mysqli_real_escape_string($conn, $_POST['feedback']);
     
     // Validate inputs
     if (!in_array($status, ['completed', 'not_completed'])) {
         $error_msg = "Invalid status selected.";
     } else {
+        // Check deadline if status is not_completed
+        if ($status == 'not_completed') {
+            $check_deadline_query = "SELECT deadline FROM tasks WHERE id = ?";
+            $d_stmt = mysqli_prepare($conn, $check_deadline_query);
+            mysqli_stmt_bind_param($d_stmt, "i", $task_id);
+            mysqli_stmt_execute($d_stmt);
+            $d_res = mysqli_stmt_get_result($d_stmt);
+            $task_data = mysqli_fetch_assoc($d_res);
+            $deadline = $task_data['deadline'];
+            
+            if (strtotime($deadline) >= strtotime(date('Y-m-d'))) {
+                $status = 'pending'; // Re-open the task for the intern
+                $display_status = 'Pending (Sent back for re-work)';
+            } else {
+                $display_status = 'Not Completed (Final)';
+            }
+        } else {
+            $display_status = 'Completed';
+        }
+
         // Update task
         $update_query = "UPDATE tasks SET 
                         status = ?, 
-                        rating = ?, 
-                        feedback = ?
+                        rating = ?
                         WHERE id = ? AND assigned_by = ?";
         
         $stmt = mysqli_prepare($conn, $update_query);
-        mysqli_stmt_bind_param($stmt, "sisii", $status, $rating, $feedback, $task_id, $team_lead_id);
+        mysqli_stmt_bind_param($stmt, "siii", $status, $rating, $task_id, $team_lead_id);
         
         if (mysqli_stmt_execute($stmt)) {
-            $success_msg = "Task marked as " . ucfirst(str_replace('_', ' ', $status)) . " successfully!";
+            $success_msg = "Task marked as " . $display_status . " successfully!";
             
             // --- Performance Calculation Logic ---
-            
-            // 1. Get Intern ID for this task
             $get_intern_query = "SELECT assigned_to FROM tasks WHERE id = $task_id";
             $res = mysqli_query($conn, $get_intern_query);
             $row = mysqli_fetch_assoc($res);
             $intern_id_calc = $row['assigned_to'];
-            
+
             if ($intern_id_calc) {
-                // 2. Fetch all tasks for this intern
-                $perf_sql = "SELECT * FROM tasks WHERE assigned_to = $intern_id_calc";
-                $perf_res = mysqli_query($conn, $perf_sql);
-                
-                $total_tasks = 0;
-                $completed_tasks = 0;
-                $on_time_tasks = 0;
-                $total_rating = 0;
-                $rated_tasks_count = 0;
-                $tasks_submitted_count = 0;
-                $tasks_pending_count = 0;
-                $tasks_not_completed_count = 0;
-                
-                while ($t = mysqli_fetch_assoc($perf_res)) {
-                    $total_tasks++;
-                    
-                    if ($t['status'] == 'completed') {
-                        $completed_tasks++;
-                    } elseif ($t['status'] == 'submitted') {
-                        $tasks_submitted_count++;
-                    } elseif ($t['status'] == 'pending') {
-                        $tasks_pending_count++;
-                    } elseif ($t['status'] == 'not_completed') {
-                        $tasks_not_completed_count++;
-                    }
-                    
-                    // On-time check: submitted_date <= deadline (if both exist)
-                    if (!empty($t['submitted_date']) && !empty($t['deadline'])) {
-                        $sub_date = strtotime($t['submitted_date']);
-                        $dead_date = strtotime($t['deadline']);
-                        if ($sub_date <= $dead_date) {
-                            $on_time_tasks++;
-                        }
-                    }
-                    
-                    // Rating
-                    if (!empty($t['rating']) && $t['rating'] > 0) {
-                        $total_rating += $t['rating'];
-                        $rated_tasks_count++;
-                    }
-                }
-                
-                // 3. Calculate Metrics
-                $completion_rate = ($total_tasks > 0) ? ($completed_tasks / $total_tasks) * 100 : 0;
-                $on_time_rate = ($total_tasks > 0) ? ($on_time_tasks / $total_tasks) * 100 : 0;
-                
-                $avg_rating = ($rated_tasks_count > 0) ? ($total_rating / $rated_tasks_count) : 0;
-                $normalized_rating_score = ($avg_rating / 5) * 100;
-                
-                // Weighted Score: 50% Completion, 30% On-time, 20% Rating
-                $performance_score = ($completion_rate * 0.50) + ($on_time_rate * 0.30) + ($normalized_rating_score * 0.20);
-                
-                // 4. Determine Eligibility
-                // Fetch min_score from company_details
-                $comp_sql = "SELECT min_score_for_job FROM company_details LIMIT 1";
-                $comp_res = mysqli_query($conn, $comp_sql);
-                $comp_data = mysqli_fetch_assoc($comp_res);
-                $min_score_req = $comp_data['min_score_for_job'] ?? 70;
-                
-                $eligibility = ($performance_score >= $min_score_req) ? 'eligible' : 'not_eligible';
-                
-                // 5. Update Performance Table
-                // Check if record exists first
-                $check_perf = "SELECT intern_id FROM performance WHERE intern_id = $intern_id_calc";
-                $check_res = mysqli_query($conn, $check_perf);
-                
-                if (mysqli_num_rows($check_res) > 0) {
-                    $update_perf = "UPDATE performance SET 
-                                    total_tasks_assigned = $total_tasks,
-                                    tasks_completed = $completed_tasks,
-                                    tasks_not_completed = $tasks_not_completed_count,
-                                    tasks_submitted = $tasks_submitted_count,
-                                    tasks_pending = $tasks_pending_count,
-                                    on_time_submissions = $on_time_tasks,
-                                    performance_score = $performance_score,
-                                    eligibility = '$eligibility',
-                                    last_updated = NOW()
-                                    WHERE intern_id = $intern_id_calc";
-                    mysqli_query($conn, $update_perf);
-                } else {
-                    $insert_perf = "INSERT INTO performance 
-                                    (intern_id, total_tasks_assigned, tasks_completed, tasks_not_completed, tasks_submitted, tasks_pending, on_time_submissions, performance_score, eligibility, last_updated)
-                                    VALUES 
-                                    ($intern_id_calc, $total_tasks, $completed_tasks, $tasks_not_completed_count, $tasks_submitted_count, $tasks_pending_count, $on_time_tasks, $performance_score, '$eligibility', NOW())";
-                    mysqli_query($conn, $insert_perf);
-                }
+                require_once '../config/performance_helper.php';
+                updateInternPerformance($conn, $intern_id_calc);
             }
             
             // Redirect after short delay or show success
@@ -416,6 +339,9 @@ $company_name = $company_data['company_name'] ?? 'Intern Management System';
             <a href="tasks.php" class="nav-link active">
                 <i class="fas fa-tasks"></i>Tasks
             </a>
+            <a href="submitted_tasks.php" class="nav-link">
+                <i class="fas fa-paper-plane"></i>Submitted Tasks
+            </a>
             <a href="assign_task.php" class="nav-link">
                 <i class="fas fa-plus-circle"></i>Assign Task
             </a>
@@ -515,7 +441,18 @@ $company_name = $company_data['company_name'] ?? 'Intern Management System';
                         </div>
                         
                         <div class="border-top pt-3">
-                            <h6 class="mb-3"><i class="fas fa-file-alt me-2"></i>Submission</h6>
+                            <h6 class="mb-3"><i class="fas fa-file-alt me-2"></i>Submission Info</h6>
+                            
+                            <?php if($task['submission_text']): ?>
+                                <div class="mb-3">
+                                    <label class="text-muted small d-block mb-1">Intern's Notes/Submission Text</label>
+                                    <div class="p-3 bg-light rounded text-dark">
+                                        <?php echo nl2br(htmlspecialchars($task['submission_text'])); ?>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+
+                            <h6 class="mb-3 small text-muted font-weight-bold">Attached File</h6>
                             <?php if ($task['submitted_file']): ?>
                                 <div class="p-3 bg-light rounded d-flex justify-content-between align-items-center">
                                     <div>
@@ -540,7 +477,7 @@ $company_name = $company_data['company_name'] ?? 'Intern Management System';
             <div class="col-lg-5">
                 <div class="card">
                     <div class="card-header bg-primary text-white">
-                        <h6 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Review & Feedback</h6>
+                        <h6 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Review Task</h6>
                     </div>
                     <div class="card-body">
                         <form method="POST" action="">
@@ -558,10 +495,6 @@ $company_name = $company_data['company_name'] ?? 'Intern Management System';
                                 </div>
                             </div>
                             
-                            <div class="mb-4">
-                                <label class="form-label fw-bold">Feedback / Comments</label>
-                                <textarea name="feedback" class="form-control" rows="5" placeholder="Provide constructive feedback for the intern..." required><?php echo htmlspecialchars($task['feedback'] ?? ''); ?></textarea>
-                            </div>
                             
                             <hr>
                             

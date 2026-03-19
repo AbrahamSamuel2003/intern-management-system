@@ -4,17 +4,8 @@
 // Start session and database connection
 session_start();
 
-// Database configuration
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$database = 'imsjr';
-
-// Create connection
-$conn = mysqli_connect($host, $username, $password, $database);
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-}
+// Include database configuration
+require_once '../config/database.php';
 
 // Check if user is logged in and is team lead
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'team_lead') {
@@ -296,6 +287,16 @@ $recent_interns_result = mysqli_query($conn, $recent_interns_query);
             background-color: #d1fae5;
             color: #065f46;
         }
+
+        /* Task Row */
+        .task-row {
+            transition: background-color 0.3s;
+            cursor: pointer;
+        }
+        
+        .task-row:hover {
+            background-color: #f1f4f9;
+        }
         
         /* Responsive */
         @media (max-width: 768px) {
@@ -340,6 +341,13 @@ $recent_interns_result = mysqli_query($conn, $recent_interns_query);
             
             <a href="tasks.php" class="nav-link">
                 <i class="fas fa-tasks"></i>Tasks
+            </a>
+            
+            <a href="submitted_tasks.php" class="nav-link">
+                <i class="fas fa-paper-plane"></i>Submitted Tasks
+                <?php if ($stats['submitted_tasks'] > 0): ?>
+                <span class="badge bg-info float-end"><?php echo $stats['submitted_tasks']; ?></span>
+                <?php endif; ?>
             </a>
             
             <a href="assign_task.php" class="nav-link">
@@ -509,14 +517,14 @@ $recent_interns_result = mysqli_query($conn, $recent_interns_query);
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <a href="tasks.php?status=pending" class="quick-action-item">
+                                <a href="submitted_tasks.php" class="quick-action-item">
                                     <div class="d-flex align-items-center">
                                         <div class="bg-warning bg-opacity-10 p-2 rounded me-3">
-                                            <i class="fas fa-eye text-warning"></i>
+                                            <i class="fas fa-clipboard-check text-warning"></i>
                                         </div>
                                         <div>
                                             <h6 class="mb-0">Review Tasks</h6>
-                                            <small class="text-muted">Check pending tasks</small>
+                                            <small class="text-muted">Check submitted tasks</small>
                                         </div>
                                     </div>
                                 </a>
@@ -560,7 +568,7 @@ $recent_interns_result = mysqli_query($conn, $recent_interns_query);
                                     </thead>
                                     <tbody>
                                         <?php while($task = mysqli_fetch_assoc($recent_tasks_result)): ?>
-                                        <tr>
+                                        <tr class="task-row" onclick="window.location.href='view_task.php?id=<?php echo $task['id']; ?>'">
                                             <td>
                                                 <strong><?php echo htmlspecialchars($task['title']); ?></strong>
                                             </td>
@@ -577,9 +585,9 @@ $recent_interns_result = mysqli_query($conn, $recent_interns_query);
                                                 <?php endif; ?>
                                             </td>
                                             <td><?php echo date('M d, Y', strtotime($task['assigned_date'])); ?></td>
-                                            <td>
-                                                <a href="view_task.php?id=<?php echo $task['id']; ?>" class="btn btn-sm btn-outline-primary">
-                                                    <i class="fas fa-eye"></i>
+                                            <td onclick="event.stopPropagation();">
+                                                <a href="review_task.php?id=<?php echo $task['id']; ?>" class="btn btn-sm btn-outline-info">
+                                                    <i class="fas fa-clipboard-check"></i>
                                                 </a>
                                             </td>
                                         </tr>
@@ -624,8 +632,8 @@ $recent_interns_result = mysqli_query($conn, $recent_interns_query);
                                             <small class="text-muted d-block"><?php echo htmlspecialchars($intern['email']); ?></small>
                                         </div>
                                         <div>
-                                            <a href="view_intern.php?id=<?php echo $intern['id']; ?>" class="btn btn-sm btn-outline-primary">
-                                                <i class="fas fa-eye"></i>
+                                            <a href="messages.php?intern_id=<?php echo $intern['id']; ?>" class="btn btn-sm btn-outline-info">
+                                                <i class="fas fa-envelope"></i>
                                             </a>
                                         </div>
                                     </div>
