@@ -68,7 +68,7 @@ $performance_query = "
 $performance_result = mysqli_query($conn, $performance_query);
 $performance = mysqli_fetch_assoc($performance_result);
 
-// Get intern's tasks - REMOVED rating column
+// Get intern's tasks - INCLUDING rating column
 $tasks_query = "
     SELECT 
         t.title,
@@ -77,6 +77,7 @@ $tasks_query = "
         t.assigned_date,
         t.deadline,
         t.submitted_date,
+        t.rating,
         tl.full_name as assigned_by_name
     FROM tasks t
     LEFT JOIN users tl ON t.assigned_by = tl.id
@@ -92,6 +93,17 @@ $total_tasks = $intern['total_tasks'] ?: 0;
 $completed_tasks = $intern['completed_tasks_count'] ?: 0;
 $performance_score = $intern['performance_score'] ?: 0;
 $eligibility = $intern['eligibility'] ?: 'pending';
+
+// Calculate rating stats
+$total_stars = 0;
+$rated_tasks_count = 0;
+foreach ($tasks as $task) {
+    if (isset($task['rating']) && $task['rating'] > 0) {
+        $total_stars += $task['rating'];
+        $rated_tasks_count++;
+    }
+}
+$avg_rating = $rated_tasks_count > 0 ? $total_stars / $rated_tasks_count : 0;
 ?>
 
 <!DOCTYPE html>
@@ -103,6 +115,11 @@ $eligibility = $intern['eligibility'] ?: 'pending';
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     
     <style>
         body { 
@@ -429,6 +446,20 @@ $eligibility = $intern['eligibility'] ?: 'pending';
                                 <?php echo round($performance_score, 1); ?>%
                             </div>
                             <div class="mt-2">
+                                <span class="text-warning">
+                                    <?php 
+                                    $full_stars = floor($avg_rating);
+                                    $half_star = ($avg_rating - $full_stars) >= 0.5 ? 1 : 0;
+                                    for($i=1; $i<=5; $i++) {
+                                        if($i <= $full_stars) echo '<i class="fas fa-star"></i>';
+                                        elseif($i == $full_stars + 1 && $half_star) echo '<i class="fas fa-star-half-alt"></i>';
+                                        else echo '<i class="far fa-star"></i>';
+                                    }
+                                    ?>
+                                </span>
+                                <small class="text-white ms-1">(<?php echo round($avg_rating, 1); ?>)</small>
+                            </div>
+                            <div class="mt-2">
                                 <?php if ($eligibility == 'eligible'): ?>
                                     <span class="badge-eligible">
                                         <i class="fas fa-check-circle me-1"></i>Eligible for Job
@@ -640,6 +671,13 @@ $eligibility = $intern['eligibility'] ?: 'pending';
                                                 <i class="fas fa-paper-plane me-1"></i>Submitted: <?php echo date('M d, Y', strtotime($task['submitted_date'])); ?>
                                             </span>
                                             <?php endif; ?>
+                                            
+                                            <?php if ($task['rating'] > 0): ?>
+                                            <span class="badge bg-warning text-dark">
+                                                <?php for($i=1; $i<=5; $i++) echo ($i <= $task['rating'] ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>'); ?>
+                                                (<?php echo $task['rating']; ?>/5)
+                                            </span>
+                                            <?php endif; ?>
                                         </div>
                                         
                                     </div>
@@ -705,14 +743,171 @@ $eligibility = $intern['eligibility'] ?: 'pending';
             window.print();
         }
         
-        // Add print button
+        // Export to Excel (.xlsx)
+        function exportToExcel() {
+            // Summary Info
+            const summary = [
+                ['Intern Performance Report'],
+                ['Name', "<?php echo addslashes($intern['full_name']); ?>"],
+                ['Email', "<?php echo addslashes($intern['email']); ?>"],
+                ['Domain', "<?php echo addslashes($intern['domain_name'] ?? 'No Domain'); ?>"],
+                ['Total Tasks', "<?php echo $total_tasks; ?>"],
+                ['Completed', "<?php echo $completed_tasks; ?>"],
+                ['Performance Score', "<?php echo round($performance_score, 1); ?>%"],
+                ['Eligibility', "<?php echo ucfirst($eligibility); ?>"],
+                [''],
+                ['Task History']
+            ];
+            
+            // Task Header
+            summary.push(['Task Title', 'Status', 'Assigned', 'Deadline', 'Submitted', 'Rating']);
+            
+            // Task Data
+            <?php foreach ($tasks as $task): ?>
+            summary.push([
+                "<?php echo addslashes($task['title']); ?>",
+                "<?php echo ucfirst($task['status']); ?>",
+                "<?php echo $task['assigned_date'] ? date('Y-m-d', strtotime($task['assigned_date'])) : '-'; ?>",
+                "<?php echo $task['deadline'] ? date('Y-m-d', strtotime($task['deadline'])) : '-'; ?>",
+                "<?php echo $task['submitted_date'] ? date('Y-m-d', strtotime($task['submitted_date'])) : '-'; ?>",
+                "<?php echo $task['rating'] ?: 'N/A'; ?>"
+            ]);
+            <?php endforeach; ?>
+            
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(summary);
+            XLSX.utils.book_append_sheet(wb, ws, "Performance Report");
+            XLSX.writeFile(wb, "performance_<?php echo strtolower(str_replace(' ', '_', $intern['full_name'])); ?>_<?php echo date('Y-m-d'); ?>.xlsx");
+        }
+        
+        // Export to PDF
+        function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'pt', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            
+            // Header
+            doc.setFillColor(78, 115, 223);
+            doc.rect(0, 0, pageWidth, 80, 'F');
+            
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(24);
+            doc.setFont('helvetica', 'bold');
+            doc.text("PERFORMANCE REPORT", pageWidth/2, 45, { align: 'center' });
+            
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'normal');
+            doc.text("<?php echo $company_name; ?>", pageWidth/2, 65, { align: 'center' });
+            
+            // Intern Details
+            doc.setTextColor(51, 51, 51);
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text("Intern Information", 40, 110);
+            
+            doc.setDrawColor(204, 204, 204);
+            doc.line(40, 115, pageWidth - 40, 115);
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text("Name: <?php echo $intern['full_name']; ?>", 40, 135);
+            doc.text("Email: <?php echo $intern['email']; ?>", 40, 150);
+            doc.text("Domain: <?php echo $intern['domain_name'] ?? 'N/A'; ?>", 40, 165);
+            doc.text("Username: @<?php echo $intern['username']; ?>", 40, 180);
+            
+            doc.text("Date Generated: <?php echo date('F j, Y'); ?>", pageWidth - 40, 135, { align: 'right' });
+            
+            // Scores Summary
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text("Performance Summary", 40, 215);
+            doc.line(40, 220, pageWidth - 40, 220);
+            
+            doc.autoTable({
+                startY: 230,
+                head: [['Metric', 'Value']],
+                body: [
+                    ['Total Tasks Assigned', "<?php echo $total_tasks; ?>"],
+                    ['Tasks Completed', "<?php echo $completed_tasks; ?>"],
+                    ['Success Rate', "<?php echo $total_tasks > 0 ? round($completed_tasks / $total_tasks * 100, 1) : 0; ?>%"],
+                    ['Performance Score', "<?php echo round($performance_score, 1); ?>%"],
+                    ['Eligibility Status', "<?php echo strtoupper($eligibility); ?>"],
+                    ['Average Rating', "<?php echo round($avg_rating, 1); ?> / 5"]
+                ],
+                theme: 'striped',
+                headStyles: { fillColor: [78, 115, 223] },
+                margin: { left: 40, right: 40 }
+            });
+            
+            // Task History Table
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text("Task History", 40, doc.lastAutoTable.finalY + 30);
+            doc.line(40, doc.lastAutoTable.finalY + 35, pageWidth - 40, doc.lastAutoTable.finalY + 35);
+            
+            const taskData = [];
+            <?php foreach ($tasks as $task): ?>
+            taskData.push([
+                "<?php echo addslashes($task['title']); ?>",
+                "<?php echo ucfirst($task['status']); ?>",
+                "<?php echo $task['deadline'] ? date('M d, Y', strtotime($task['deadline'])) : 'N/A'; ?>",
+                "<?php echo $task['rating'] ?: '-'; ?>"
+            ]);
+            <?php endforeach; ?>
+            
+            doc.autoTable({
+                startY: doc.lastAutoTable.finalY + 45,
+                head: [['Task Title', 'Status', 'Deadline', 'Rating']],
+                body: taskData,
+                theme: 'grid',
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [102, 126, 234] },
+                margin: { left: 40, right: 40 }
+            });
+            
+            // Footer
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(153, 153, 153);
+                doc.text(`Page ${i} of ${pageCount}`, pageWidth/2, doc.internal.pageSize.getHeight() - 20, { align: 'center' });
+                doc.text("Generated by Intern Management System", 40, doc.internal.pageSize.getHeight() - 20);
+            }
+            
+            doc.save("performance_report_<?php echo strtolower(str_replace(' ', '_', $intern['full_name'])); ?>.pdf");
+        }
+        
+        // Add export buttons
         document.addEventListener('DOMContentLoaded', function() {
-            const navbar = document.querySelector('.navbar-top .d-flex');
+            const navbarActions = document.querySelector('.navbar-top .d-flex') || document.querySelector('.navbar-top');
+            
+            // Container
+            const btnContainer = document.createElement('div');
+            btnContainer.className = 'd-flex gap-2 ms-2';
+            
+            // Excel
+            const excelBtn = document.createElement('button');
+            excelBtn.className = 'btn btn-outline-success';
+            excelBtn.innerHTML = '<i class="fas fa-file-excel me-1"></i>Excel';
+            excelBtn.onclick = exportToExcel;
+            btnContainer.appendChild(excelBtn);
+            
+            // PDF
+            const pdfBtn = document.createElement('button');
+            pdfBtn.className = 'btn btn-outline-danger';
+            pdfBtn.innerHTML = '<i class="fas fa-file-pdf me-1"></i>PDF';
+            pdfBtn.onclick = exportToPDF;
+            btnContainer.appendChild(pdfBtn);
+            
+            // Print (existing print button is added at line 742, I'll move it here for consistency)
             const printBtn = document.createElement('button');
-            printBtn.className = 'btn btn-outline-secondary ms-2';
-            printBtn.innerHTML = '<i class="fas fa-print me-2"></i>Print Report';
+            printBtn.className = 'btn btn-outline-secondary';
+            printBtn.innerHTML = '<i class="fas fa-print me-1"></i>Print';
             printBtn.onclick = printPerformanceReport;
-            navbar.appendChild(printBtn);
+            btnContainer.appendChild(printBtn);
+            
+            navbarActions.appendChild(btnContainer);
         });
     </script>
 </body>

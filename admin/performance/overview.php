@@ -103,6 +103,11 @@ $stats = mysqli_fetch_assoc($stats_result);
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
+    <!-- Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    
     <style>
         body { 
             background-color: #f8f9fc; 
@@ -795,42 +800,95 @@ $stats = mysqli_fetch_assoc($stats_result);
         });
         
         // Add export functionality
+        // Export to Excel (.xlsx)
         function exportToExcel() {
             const table = document.querySelector('table');
-            let csv = [];
-            const rows = table.querySelectorAll('tr');
-            
-            for (let i = 0; i < rows.length; i++) {
-                const row = [], cols = rows[i].querySelectorAll('td, th');
-                
-                for (let j = 0; j < cols.length; j++) {
-                    // Remove icons and HTML tags
-                    let text = cols[j].innerText.replace(/\n/g, ' ').trim();
-                    row.push(text);
-                }
-                
-                csv.push(row.join(","));
-            }
-            
-            // Download CSV file
-            const csvFile = new Blob([csv.join("\n")], {type: "text/csv"});
-            const downloadLink = document.createElement("a");
-            downloadLink.download = "performance_report_<?php echo date('Y-m-d'); ?>.csv";
-            downloadLink.href = window.URL.createObjectURL(csvFile);
-            downloadLink.style.display = "none";
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            document.body.removeChild(downloadLink);
+            const wb = XLSX.utils.table_to_book(table, { sheet: "Performance Report" });
+            XLSX.writeFile(wb, "performance_report_<?php echo date('Y-m-d'); ?>.xlsx");
         }
         
-        // Add export button to header
+        // Export to PDF
+        function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'pt', 'a4'); // Landscape, points, a4
+            
+            // Add title
+            doc.setFontSize(20);
+            doc.text("<?php echo $company_name; ?> - Performance Overview", 40, 40);
+            doc.setFontSize(12);
+            doc.text("Date: <?php echo date('F j, Y'); ?>", 40, 60);
+            
+            // Add statistics summary
+            doc.setFontSize(14);
+            doc.text("Summary Stats:", 40, 90);
+            doc.setFontSize(10);
+            doc.text("Total Interns: <?php echo $stats['total_interns'] ?? 0; ?>", 40, 110);
+            doc.text("Eligible: <?php echo $stats['eligible_count'] ?? 0; ?>", 180, 110);
+            doc.text("Average Score: <?php echo round($stats['avg_score'] ?? 0, 1); ?>%", 320, 110);
+            
+            // Extract table data - skipping some complex formatted columns for simplicity
+            const table = document.querySelector('table');
+            const data = [];
+            const rows = table.querySelectorAll('tbody tr');
+            
+            rows.forEach(row => {
+                const rowData = [];
+                const cols = row.querySelectorAll('td');
+                
+                // Rank
+                rowData.push(cols[0].innerText.replace(/\n/g, ' ').trim());
+                // Name (extracting just the name from the details column)
+                rowData.push(cols[1].querySelector('h6').innerText);
+                // Domain
+                rowData.push(cols[2].innerText.replace(/\n/g, ' ').trim());
+                // Tasks
+                rowData.push(cols[3].innerText.replace(/\n/g, ' ').trim());
+                // Eligibility
+                rowData.push(cols[4].innerText.replace(/\n/g, ' ').trim());
+                // Date
+                rowData.push(cols[5].innerText.replace(/\n/g, ' ').trim());
+                
+                data.push(rowData);
+            });
+            
+            doc.autoTable({
+                head: [['Rank', 'Intern Name', 'Domain', 'Task Stats', 'Eligibility', 'Last Updated']],
+                body: data,
+                startY: 130,
+                theme: 'grid',
+                headStyles: { fillColor: [78, 115, 223] }, // Matches company blue
+                styles: { fontSize: 9 }
+            });
+            
+            doc.save("performance_report_<?php echo date('Y-m-d'); ?>.pdf");
+        }
+        
+        // Add export buttons to header
         document.addEventListener('DOMContentLoaded', function() {
-            const header = document.querySelector('.card-header .d-flex');
-            const exportBtn = document.createElement('button');
-            exportBtn.className = 'btn btn-success btn-sm ms-2';
-            exportBtn.innerHTML = '<i class="fas fa-file-excel me-1"></i> Export';
-            exportBtn.onclick = exportToExcel;
-            header.appendChild(exportBtn);
+            const table = document.querySelector('table');
+            if (!table) return;
+            
+            const headerActions = document.querySelector('.card-header .d-flex') || document.querySelector('.card-header');
+            
+            // Container for export buttons
+            const btnGroup = document.createElement('div');
+            btnGroup.className = 'btn-group btn-group-sm ms-2';
+            
+            // Excel Button
+            const excelBtn = document.createElement('button');
+            excelBtn.className = 'btn btn-success';
+            excelBtn.innerHTML = '<i class="fas fa-file-excel me-1"></i> Excel';
+            excelBtn.onclick = exportToExcel;
+            btnGroup.appendChild(excelBtn);
+            
+            // PDF Button
+            const pdfBtn = document.createElement('button');
+            pdfBtn.className = 'btn btn-danger';
+            pdfBtn.innerHTML = '<i class="fas fa-file-pdf me-1"></i> PDF';
+            pdfBtn.onclick = exportToPDF;
+            btnGroup.appendChild(pdfBtn);
+            
+            headerActions.appendChild(btnGroup);
         });
     </script>
 </body>

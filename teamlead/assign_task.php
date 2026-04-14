@@ -287,8 +287,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 </div>
                                 
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label">Deadline *</label>
-                                    <input type="date" class="form-control" name="deadline" required 
+                                    <label class="form-label">Deadline (Optional)</label>
+                                    <input type="date" class="form-control" name="deadline" 
                                            min="<?php echo date('Y-m-d'); ?>">
                                 </div>
                                 
@@ -297,22 +297,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     <input type="text" class="form-control" value="<?php echo date('F j, Y'); ?>" readonly>
                                 </div>
                                 
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Expected Duration</label>
-                                    <select class="form-select" name="expected_duration">
-                                        <option value="">Select Duration</option>
-                                        <option value="1_day">1 Day</option>
-                                        <option value="2_days">2 Days</option>
-                                        <option value="3_days">3 Days</option>
-                                        <option value="1_week">1 Week</option>
-                                        <option value="2_weeks">2 Weeks</option>
-                                        <option value="1_month">1 Month</option>
-                                    </select>
-                                </div>
-                                
                                 <div class="col-md-12 mb-3">
-                                    <label class="form-label">Task Description *</label>
-                                    <textarea class="form-control" name="description" rows="6" required 
+                                    <label class="form-label">Task Description (Optional)</label>
+                                    <textarea class="form-control" name="description" rows="6" 
                                               placeholder="Provide detailed instructions, requirements, and expected outcomes..."></textarea>
                                     <small class="text-muted">Be specific about what you expect from the intern</small>
                                 </div>
@@ -390,7 +377,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             const assignedTo = document.querySelector('select[name="assigned_to"]').value;
             const deadline = document.querySelector('input[name="deadline"]').value;
             
-            if (!title || !description || !assignedTo || !deadline) {
+            if (!title || !assignedTo) {
                 e.preventDefault();
                 alert('Please fill all required fields!');
                 return false;

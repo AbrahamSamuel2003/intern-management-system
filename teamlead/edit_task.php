@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description = mysqli_real_escape_string($conn, $_POST['description']);
     $deadline = mysqli_real_escape_string($conn, $_POST['deadline']);
     
-    if (empty($title) || empty($deadline)) {
+    if (empty($title)) {
         $error_msg = "Please fill in all required fields.";
     } else {
         $update_query = "UPDATE tasks SET title = ?, description = ?, deadline = ? WHERE id = ? AND assigned_by = ?";
@@ -126,8 +126,8 @@ $company_name = $company_data['company_name'] ?? 'Intern Management System';
                         <textarea class="form-control" name="description" rows="5"><?php echo htmlspecialchars($task['description']); ?></textarea>
                     </div>
                     <div class="mb-4">
-                        <label class="form-label fw-bold">Deadline *</label>
-                        <input type="date" class="form-control" name="deadline" value="<?php echo $task['deadline']; ?>" required>
+                        <label class="form-label fw-bold">Deadline (Optional)</label>
+                        <input type="date" class="form-control" name="deadline" value="<?php echo $task['deadline']; ?>">
                     </div>
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary px-4"><i class="fas fa-save me-2"></i>Save Changes</button>

@@ -1,21 +1,22 @@
 <?php
 // Database configuration
-if (file_exists(__DIR__ . '/db_config.php')) {
-    require_once __DIR__ . '/db_config.php';
-}
+$host = getenv('MYSQLHOST') ?: 'localhost';
+$username = getenv('MYSQLUSER') ?: 'root';
+$password = getenv('MYSQLPASSWORD') ?: '';
+$port = getenv('MYSQLPORT') ?: '3306';
 
-$host = 'localhost';
-$username = 'root';
-$password = '';
-$database = (defined('DB_NAME') && DB_NAME !== '') ? DB_NAME : null;
+// Handle database name (priority: Environment -> db_config.php)
+$database = getenv('MYSQLDATABASE');
+if (!$database && file_exists(__DIR__ . '/db_config.php')) {
+    require_once __DIR__ . '/db_config.php';
+    if (defined('DB_NAME')) {
+        $database = DB_NAME;
+    }
+}
 
 // Create connection
-if ($database) {
-    $conn = mysqli_connect($host, $username, $password, $database);
-} else {
-    // If no database defined yet, connect to MySQL server only
-    $conn = mysqli_connect($host, $username, $password);
-}
+$conn = mysqli_connect($host, $username, $password, $database, $port);
+
 
 // Check connection
 if (!$conn) {

@@ -135,32 +135,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $task_id > 0 && isset($task)) {
         } else {
             $error = 'Invalid file type. Allowed: PDF, DOC, DOCX, TXT, JPEG, PNG, ZIP, RAR';
         }
-    } else {
-        // Check if file upload error occurred
-        if (isset($_FILES['task_file']) && $_FILES['task_file']['error'] != 0 && $_FILES['task_file']['error'] != 4) {
-            $upload_errors = [
-                1 => 'The uploaded file exceeds the upload_max_filesize directive in php.ini',
-                2 => 'The uploaded file exceeds the MAX_FILE_SIZE directive',
-                3 => 'The uploaded file was only partially uploaded',
-                6 => 'Missing a temporary folder',
-                7 => 'Failed to write file to disk',
-                8 => 'A PHP extension stopped the file upload'
-            ];
-            $error = 'File upload error: ' . ($upload_errors[$_FILES['task_file']['error']] ?? 'Unknown error');
-        } elseif (!isset($_FILES['task_file']) || $_FILES['task_file']['error'] == 4) {
-            $error = 'Please select a file to upload.';
-        }
+    } elseif (isset($_FILES['task_file']) && $_FILES['task_file']['error'] != 4) {
+        $upload_errors = [
+            1 => 'The uploaded file exceeds the upload_max_filesize directive in php.ini',
+            2 => 'The uploaded file exceeds the MAX_FILE_SIZE directive',
+            3 => 'The uploaded file was only partially uploaded',
+            6 => 'Missing a temporary folder',
+            7 => 'Failed to write file to disk',
+            8 => 'A PHP extension stopped the file upload'
+        ];
+        $error = 'File upload error: ' . ($upload_errors[$_FILES['task_file']['error']] ?? 'Unknown error');
     }
     
-    if (empty($error) && isset($_FILES['task_file']) && $_FILES['task_file']['error'] == 0) {
+    // Check if submission notes are provided
+    if (empty($submission_notes)) {
+        $error = 'Submission notes are mandatory.';
+    }
+    
+    if (empty($error)) {
     // Update task status using prepared statement
     $update_query = "
         UPDATE tasks 
         SET status = 'submitted',
             submitted_date = NOW(),
             submitted_file = ?,
-            submission_text = ?,
-            last_updated = NOW()
+            submission_text = ?
         WHERE id = ? AND assigned_to = ?
     ";
     
@@ -600,12 +599,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $task_id > 0 && isset($task)) {
                         <form method="POST" action="" enctype="multipart/form-data" id="submitForm">
                             <!-- File Upload -->
                             <div class="mb-4">
-                                <label class="form-label fw-bold">Upload Completed Work *</label>
+                                <label class="form-label fw-bold">Upload Completed Work (Optional)</label>
                                 <div class="file-upload" id="fileUploadArea">
                                     <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
                                     <h5>Drag & Drop your file here</h5>
                                     <p class="text-muted mb-3">or click to browse</p>
-                                    <input type="file" name="task_file" id="taskFile" class="d-none" required>
+                                    <input type="file" name="task_file" id="taskFile" class="d-none">
                                     <div class="selected-file" id="selectedFile" style="display: none;">
                                         <i class="fas fa-file text-primary me-2"></i>
                                         <span id="fileName"></span>
@@ -628,9 +627,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $task_id > 0 && isset($task)) {
                             
                             <!-- Submission Notes -->
                             <div class="mb-4">
-                                <label class="form-label fw-bold">Submission Notes</label>
-                                <textarea class="form-control" name="submission_notes" rows="4" placeholder="Add any notes or comments about your submission..."></textarea>
-                                <small class="text-muted">Optional: Explain your approach, challenges faced, or additional information.</small>
+                                <label class="form-label fw-bold">Submission Notes *</label>
+                                <textarea class="form-control" name="submission_notes" rows="4" required placeholder="Add any notes or comments about your submission..."></textarea>
+                                <small class="text-muted">Explain your approach, challenges faced, or additional information.</small>
                             </div>
                             
                             <!-- Confirmation Checkbox -->
@@ -860,12 +859,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $task_id > 0 && isset($task)) {
         const submitForm = document.getElementById('submitForm');
         if (submitForm) {
             submitForm.addEventListener('submit', function(e) {
-                const file = fileInput.files[0];
+                const notes = document.querySelector('textarea[name="submission_notes"]').value.trim();
                 const confirmCheck = document.getElementById('confirmSubmission');
                 
-                if (!file) {
+                if (!notes) {
                     e.preventDefault();
-                    alert('Please select a file to upload.');
+                    alert('Please provide submission notes.');
                     return false;
                 }
                 
